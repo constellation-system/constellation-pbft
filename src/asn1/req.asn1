@@ -1,0 +1,24 @@
+Req DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+PBFTView ::= SEQUENCE {
+    id OCTET STRING SIZE (64)
+}
+
+PBFTAction ::= ENUMERATED {
+    Evict (0),
+    Admit (1)
+}
+
+PBFTMember ::= SEQUENCE {
+    action PBFTAction,
+    id OCTET STRING SIZE (64)
+}
+
+PBFTRequest ::= CHOICE {
+    Payload OCTET STRING SIZE (1..1024),
+    Members SEQUENCE SIZE (1..16) OF PBFTMember,
+    View PBFTView
+}
+
+END

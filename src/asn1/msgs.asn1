@@ -1,0 +1,36 @@
+Msgs DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+IMPORTS PBFTRequest FROM Req;
+
+PBFTAckState ::= ENUMERATED {
+    Prepare (0),
+    Commit (1),
+    Complete (2),
+    Fail (3)
+}
+
+PBFTStateUpdate ::= CHOICE {
+    Prepare PBFTRequest,
+    Commit PBFTRequest,
+    Complete PBFTRequest,
+    Fail NULL
+}
+
+PBFTUpdateAck ::= SEQUENCE {
+    update PBFTStateUpdate,
+    ack PBFTAckState
+}
+
+PBFTContent ::= CHOICE {
+    UpdateAck PBFTUpdateAck,
+    Update PBFTStateUpdate,
+    Ack PBFTAckState
+}
+
+PBFTMsg ::= SEQUENCE {
+    round OCTET STRING (SIZE (16)),
+    content PBFTContent
+}
+
+END
