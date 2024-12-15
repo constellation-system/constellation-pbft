@@ -1788,7 +1788,8 @@ where
                 debug!(target: "pbft-proto-state",
                        "we are the leader, not generating round");
 
-                // XXX This is temporary, for testing
+                // ISSUE #7: This is temporary, for testing.  The
+                // leader needs to generate a proposal here.
                 Ok(None)
             }
             // There is no leader, but we have a hint proposing ourself.
