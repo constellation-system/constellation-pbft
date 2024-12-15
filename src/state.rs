@@ -75,9 +75,6 @@ enum PBFTLeaderHint<Party> {
     This
 }
 
-// XXX the hint should be a separate type parameter, because it's not
-// necessary for round info, only for selecting leaders.
-
 /// Leader state.
 #[derive(Clone)]
 enum PBFTLeader<Party, Hint> {
@@ -1598,7 +1595,8 @@ where
         if let PBFTLeader::None { .. } = &self.leader {
             let mut best = self.highest_votes(votes)?;
 
-            // XXX this is a bad method; replace it with something better.
+            // ISSUE #4: this is a bad method; replace it with
+            // something better.
             if let PBFTLeader::None { hint } = &mut self.leader {
                 if best.len() > 1 {
                     let idx = random::<usize>() % best.len();
@@ -1832,7 +1830,8 @@ where
                 debug!(target: "pbft-proto-state",
                        "no one is the leader, generating view change");
 
-                // XXX this needs a better mechanism for picking a leader.
+                // ISSUE #4: this needs a better mechanism for picking
+                // a leader.
                 let parties: Vec<&CompoundHashID> =
                     self.party_hashes.values().collect();
                 let idx = (random::<usize>() % parties.len()) + 1;
@@ -3194,7 +3193,7 @@ fn test_empty_handle_prepare_lead_consistent_commit() {
     );
 }
 
-// XXX We should probably discard inconsistent commits.
+// ISSUE #5: We should probably discard inconsistent commits.
 
 #[test]
 fn test_withreq_handle_prepare_nolead_inconsistent_commit() {
