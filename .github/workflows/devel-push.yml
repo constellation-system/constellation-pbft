@@ -262,9 +262,6 @@ jobs:
           apt: libkrb5-dev llvm-${{ env.LLVM_VERSION }}
           brew: llvm@${{ env.LLVM_VERSION }}
 
-      - name: Generate test certificates
-        run: sh gen_test_certs.sh
-
       - name: Run tests
         if: matrix.os == 'ubuntu-24.04'
         uses: actions-rs/cargo@v1
@@ -292,7 +289,7 @@ jobs:
           for f in `find src -type f -regex ".*\.rs"`; do SRCS+="$f "; done
           TESTBINS=""
           CRATE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | cut -f2 -d"/")
-          for f in `find target/debug/deps -type f -regex "target/debug/deps/$CRATE_NAME\-[0-9a-f]*$"`; do TESTBINS+="$f "; done
+          for f in `find target/debug/deps -type f -regex "target/debug/deps/${CRATE_NAME//-/_}\-[0-9a-f]*$"`; do TESTBINS+="$f "; done
           llvm-cov-${{ env.LLVM_VERSION }} export --format=lcov --ignore-filename-regex="$HOME/.cargo/*|/rustc/" --instr-profile=target/coverage/coverage.profdata `echo $TESTBINS` `echo $SRCS` > target/coverage/${{ runner.os }}-coverage.lcov
 
       - name: Generate coverage report
@@ -304,7 +301,7 @@ jobs:
           for f in `find src -type f -regex ".*\.rs"`; do SRCS+="$f "; done
           TESTBINS=""
           CRATE_NAME=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]' | cut -f2 -d"/")
-          for f in `find target/debug/deps -type f -regex "target/debug/deps/$CRATE_NAME\-[0-9a-f]*$"`; do TESTBINS+="$f "; done
+          for f in `find target/debug/deps -type f -regex "target/debug/deps/${CRATE_NAME//-/_}\-[0-9a-f]*$"`; do TESTBINS+="$f "; done
           /opt/homebrew/bin/llvm-cov export --format=lcov --ignore-filename-regex="$HOME/.cargo/*|/rustc/" --instr-profile=target/coverage/coverage.profdata `echo $TESTBINS` `echo $SRCS` > target/coverage/${{ runner.os }}-coverage.lcov
 
       - name: Upload coverage data
@@ -349,9 +346,6 @@ jobs:
         uses: ConorMacBride/install-package@v1
         with:
           apt: libkrb5-dev
-
-      - name: Generate test certificates
-        run: sh gen_test_certs.sh
 
       - name: Run tests
         if: matrix.os == 'ubuntu-24.04'
