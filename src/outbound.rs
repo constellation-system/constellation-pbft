@@ -18,14 +18,12 @@
 
 //! Outbound message buffer for the Castro-Liskov PBFT protocol.
 use std::collections::hash_map::Entry;
-use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
-use std::iter::FusedIterator;
 use std::marker::PhantomData;
 use std::time::Instant;
 
@@ -125,11 +123,6 @@ pub struct PBFTOutbound<RoundID> {
     acks: BitVec
 }
 
-/// Iterator for [PBFTOutbound].
-pub struct PBFTOutboundIter {
-    inner: IntoIter<PbftMsg, BitVec>
-}
-
 impl From<usize> for OutboundPartyIdx {
     #[inline]
     fn from(val: usize) -> Self {
@@ -141,46 +134,6 @@ impl From<OutboundPartyIdx> for usize {
     #[inline]
     fn from(val: OutboundPartyIdx) -> usize {
         val.0
-    }
-}
-
-impl Iterator for PBFTOutboundIter {
-    type Item = OutboundGroup<PbftMsg>;
-
-    #[inline]
-    fn nth(
-        &mut self,
-        n: usize
-    ) -> Option<OutboundGroup<PbftMsg>> {
-        self.inner
-            .nth(n)
-            .map(|(msg, bitvec)| OutboundGroup::create(bitvec, msg))
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
-    }
-
-    #[inline]
-    fn next(&mut self) -> Option<OutboundGroup<PbftMsg>> {
-        self.inner
-            .next()
-            .map(|(msg, bitvec)| OutboundGroup::create(bitvec, msg))
-    }
-
-    #[inline]
-    fn count(self) -> usize {
-        self.inner.count()
-    }
-}
-
-impl FusedIterator for PBFTOutboundIter {}
-
-impl ExactSizeIterator for PBFTOutboundIter {
-    #[inline]
-    fn len(&self) -> usize {
-        self.inner.len()
     }
 }
 
