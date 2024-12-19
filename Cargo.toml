@@ -19,6 +19,7 @@
 [package]
 name = "constellation-pbft"
 description = "Castro-Liskov PBFT consensus protocol implementation for the Constellation distributed systems platform"
+repository = "https://github.com/constellation-system/constellation-pbft"
 version = "0.0.0"
 authors = [ "Eric McCorkle <eric.mccorkle@jhuapl.edu>" ]
 rust-version = "1.81"
@@ -29,3 +30,40 @@ exclude = [
     ".gitignore"
 ]
 edition = "2018"
+
+[features]
+default = ["gssapi", "log", "openssl", "unix"]
+gssapi = [
+    "constellation-common/gssapi",
+    "constellation-consensus-common/gssapi"
+]
+log = [
+    "dep:log",
+    "constellation-common/log",
+    "constellation-consensus-common/log"
+]
+openssl = [
+    "constellation-common/openssl",
+    "constellation-consensus-common/openssl"
+]
+unix = [
+    "constellation-common/unix",
+    "constellation-consensus-common/unix"
+]
+
+[dependencies]
+asn1rs = { version = "0.3" }
+bitvec = { version = "1.0" }
+constellation-common = { git = "https://github.com/constellation-system/constellation-common.git", branch = "devel", default-features = false }
+constellation-consensus-common = { git = "https://github.com/constellation-system/constellation-consensus-common.git", branch = "devel", default-features = false }
+log = { version = "0.4", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+
+rand = { version = "0.8" }
+
+[build-dependencies]
+asn1rs = { version = "0.3" }
+
+[dev-dependencies]
+env_logger = { version = "0.10" }
+serde_yaml = { version = "0.9" }
