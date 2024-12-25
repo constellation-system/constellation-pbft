@@ -91,7 +91,7 @@ impl<RoundIDs, PartyID, Party, Codec>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord + Send,
-    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
+    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize> + Ord,
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
     Codec: Clone + DatagramCodec<Party>
 {
