@@ -1665,7 +1665,6 @@ where
 
     fn create(
         config: Self::Config,
-        _first_round: &RoundID,
     ) -> Result<Self, Self::CreateError> {
         let (hash, outbound_config) = config.take();
         let self_hash = hash.null_hash();
