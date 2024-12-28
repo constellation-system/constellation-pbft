@@ -110,11 +110,8 @@ where
 
     fn rounds(
         &self,
-        round_ids: RoundIDs,
+        round_ids: RoundIDs
     ) -> Result<Self::Rounds, Self::RoundsError<Infallible>> {
-        SingleRound::create(
-            round_ids,
-            self.outbound_config.clone()
-        )
+        SingleRound::create(round_ids, self.outbound_config.clone())
     }
 }

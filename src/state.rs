@@ -38,8 +38,8 @@ use constellation_consensus_common::outbound::Outbound;
 use constellation_consensus_common::parties::Parties;
 use constellation_consensus_common::parties::PartyIDMap;
 use constellation_consensus_common::state::ProtoState;
-use constellation_consensus_common::state::ProtoStateSetParties;
 use constellation_consensus_common::state::ProtoStateRound;
+use constellation_consensus_common::state::ProtoStateSetParties;
 use constellation_consensus_common::state::RoundState;
 use constellation_consensus_common::state::RoundStateUpdate;
 use log::debug;
@@ -1614,8 +1614,8 @@ where
     }
 }
 
-impl<PartyID, Party, Codec>
-    ProtoStateSetParties<PartyID, Party, Codec> for PBFTProtoState<PartyID>
+impl<PartyID, Party, Codec> ProtoStateSetParties<PartyID, Party, Codec>
+    for PBFTProtoState<PartyID>
 where
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
     PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
@@ -1633,8 +1633,7 @@ where
         let self_hash = self.hash.hashid(&mut codec, &self_party)?;
         let party_hashes = HashMap::with_capacity(len);
         let hash_parties = HashMap::with_capacity(len);
-        let old_hash_parties =
-            replace(&mut self.hash_parties, hash_parties);
+        let old_hash_parties = replace(&mut self.hash_parties, hash_parties);
         let mut party_map = Vec::with_capacity(len);
 
         self.self_hash = self_hash;
@@ -1647,7 +1646,6 @@ where
             party_map.push(old_hash_parties.get(&hash).cloned());
             self.party_hashes.insert(party_id.clone(), hash.clone());
             self.hash_parties.insert(hash, party_id.clone());
-
         }
 
         Ok(party_map)
@@ -1659,13 +1657,11 @@ where
     PartyID: Clone + Display + Eq + Hash + Into<usize>
 {
     type Config = PBFTProtoStateConfig;
+    type CreateError = Infallible;
     type Oper = PBFTRoundResult<PbftRequest>;
     type UpdateError = PBFTProtoStateUpdateError;
-    type CreateError = Infallible;
 
-    fn create(
-        config: Self::Config,
-    ) -> Result<Self, Self::CreateError> {
+    fn create(config: Self::Config) -> Result<Self, Self::CreateError> {
         let (hash, outbound_config) = config.take();
         let self_hash = hash.null_hash();
         let party_hashes = HashMap::new();
