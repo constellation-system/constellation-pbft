@@ -21,10 +21,12 @@
 use std::array::TryFromSliceError;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
+use std::mem::replace;
 
 use bitvec::prelude::bitvec;
 use bitvec::prelude::BitVec;
@@ -36,7 +38,7 @@ use constellation_consensus_common::outbound::Outbound;
 use constellation_consensus_common::parties::Parties;
 use constellation_consensus_common::parties::PartyIDMap;
 use constellation_consensus_common::state::ProtoState;
-use constellation_consensus_common::state::ProtoStateCreate;
+use constellation_consensus_common::state::ProtoStateSetParties;
 use constellation_consensus_common::state::ProtoStateRound;
 use constellation_consensus_common::state::RoundState;
 use constellation_consensus_common::state::RoundStateUpdate;
@@ -1612,51 +1614,63 @@ where
     }
 }
 
-impl<RoundID, PartyID, Party, Codec>
-    ProtoStateCreate<RoundID, PartyID, Party, Codec> for PBFTProtoState<PartyID>
+impl<PartyID, Party, Codec>
+    ProtoStateSetParties<PartyID, Party, Codec> for PBFTProtoState<PartyID>
 where
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
-    PartyID: Clone + Display + Eq + Hash + Into<usize>,
+    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
     Codec: DatagramCodec<Party>
 {
-    type Config = PBFTProtoStateConfig;
-    type CreateError<PartiesErr> =
-        PBFTProtoStateCreateError<PartiesErr, Codec::EncodeError>
-    where PartiesErr: Display;
+    type SetPartiesError = Codec::EncodeError;
 
-    fn create<P>(
-        config: Self::Config,
+    fn set_parties(
+        &mut self,
         mut codec: Codec,
-        first_round: &RoundID,
-        parties: &P,
         self_party: Party,
         party_data: &[Party]
-    ) -> Result<Self, Self::CreateError<P::Error>>
-    where
-        P: Parties<RoundID, PartyID> {
-        let (hash, outbound_config) = config.take();
-        let self_hash = hash
-            .hashid(&mut codec, &self_party)
-            .map_err(|err| PBFTProtoStateCreateError::Encode { err: err })?;
-        let iter = parties
-            .parties(first_round)
-            .map_err(|err| PBFTProtoStateCreateError::Parties { err: err })?;
-        let hint = match iter.size_hint() {
-            (_, Some(hint)) | (hint, _) => hint
-        };
-        let mut party_hashes = HashMap::with_capacity(hint);
-        let mut hash_parties = HashMap::with_capacity(hint);
+    ) -> Result<Vec<Option<PartyID>>, Self::SetPartiesError> {
+        let len = party_data.len();
+        let self_hash = self.hash.hashid(&mut codec, &self_party)?;
+        let party_hashes = HashMap::with_capacity(len);
+        let hash_parties = HashMap::with_capacity(len);
+        let old_hash_parties =
+            replace(&mut self.hash_parties, hash_parties);
+        let mut party_map = Vec::with_capacity(len);
 
-        for party_id in iter {
-            let idx: usize = party_id.clone().into();
-            let party = &party_data[idx];
-            let hash = hash.hashid(&mut codec, party).map_err(|err| {
-                PBFTProtoStateCreateError::Encode { err: err }
-            })?;
+        self.self_hash = self_hash;
+        self.party_hashes = party_hashes;
 
-            party_hashes.insert(party_id.clone(), hash.clone());
-            hash_parties.insert(hash, party_id.clone());
+        for (i, party) in party_data.iter().enumerate() {
+            let party_id = PartyID::from(i);
+            let hash = self.hash.hashid(&mut codec, party)?;
+
+            party_map.push(old_hash_parties.get(&hash).cloned());
+            self.party_hashes.insert(party_id.clone(), hash.clone());
+            self.hash_parties.insert(hash, party_id.clone());
+
         }
+
+        Ok(party_map)
+    }
+}
+
+impl<RoundID, PartyID> ProtoState<RoundID, PartyID> for PBFTProtoState<PartyID>
+where
+    PartyID: Clone + Display + Eq + Hash + Into<usize>
+{
+    type Config = PBFTProtoStateConfig;
+    type Oper = PBFTRoundResult<PbftRequest>;
+    type UpdateError = PBFTProtoStateUpdateError;
+    type CreateError = Infallible;
+
+    fn create(
+        config: Self::Config,
+        _first_round: &RoundID,
+    ) -> Result<Self, Self::CreateError> {
+        let (hash, outbound_config) = config.take();
+        let self_hash = hash.null_hash();
+        let party_hashes = HashMap::new();
+        let hash_parties = HashMap::new();
 
         Ok(PBFTProtoState {
             outbound_config: outbound_config,
@@ -1667,14 +1681,6 @@ where
             hash: hash
         })
     }
-}
-
-impl<RoundID, PartyID> ProtoState<RoundID, PartyID> for PBFTProtoState<PartyID>
-where
-    PartyID: Clone + Display + Eq + Hash + Into<usize>
-{
-    type Oper = PBFTRoundResult<PbftRequest>;
-    type UpdateError = PBFTProtoStateUpdateError;
 
     fn update<P>(
         &mut self,
