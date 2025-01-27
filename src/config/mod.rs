@@ -19,6 +19,7 @@
 //! Configuration objects.
 use constellation_common::hashid::CompoundHashAlgo;
 use constellation_common::retry::Retry;
+use constellation_consensus_common::config::SingleRoundConfig;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -40,7 +41,7 @@ pub struct PBFTConfig {
     // view changes.
     // view_change_time: Option<Duration>
     #[serde(flatten)]
-    state: PBFTProtoStateConfig
+    state: SingleRoundConfig<PBFTProtoStateConfig>
 }
 
 /// Configuration for individual rounds for the PBFT consensus protocol.
@@ -102,17 +103,17 @@ impl PBFTProtoStateConfig {
 
 impl PBFTConfig {
     #[inline]
-    pub fn create(state: PBFTProtoStateConfig) -> Self {
+    pub fn create(state: SingleRoundConfig<PBFTProtoStateConfig>) -> Self {
         PBFTConfig { state: state }
     }
 
     #[inline]
-    pub fn state(&self) -> &PBFTProtoStateConfig {
+    pub fn state(&self) -> &SingleRoundConfig<PBFTProtoStateConfig> {
         &self.state
     }
 
     #[inline]
-    pub fn take(self) -> PBFTProtoStateConfig {
+    pub fn take(self) -> SingleRoundConfig<PBFTProtoStateConfig> {
         self.state
     }
 }

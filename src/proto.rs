@@ -23,8 +23,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use constellation_common::codec::DatagramCodec;
+use constellation_consensus_common::config::SingleRoundConfig;
 use constellation_consensus_common::parties::StaticParties;
-use constellation_consensus_common::parties::StaticPartiesError;
 use constellation_consensus_common::proto::ConsensusProto;
 use constellation_consensus_common::proto::ConsensusProtoRounds;
 use constellation_consensus_common::round::SingleRound;
@@ -38,24 +38,21 @@ use crate::msgs::PbftMsg;
 use crate::outbound::OutboundPartyIdx;
 use crate::outbound::PBFTOutbound;
 use crate::state::PBFTProtoState;
-use crate::state::PBFTProtoStateCreateError;
 use crate::state::PBFTRoundStateCreateError;
 
 /// Castro-Liskov PBFT consensus protocol implementation.
-pub struct PBFTProto<RoundIDs, Party, PartyCodec>
+pub struct PBFTProto<RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord,
-    PartyCodec: Clone + DatagramCodec<Party>,
     Party: Clone + Eq + Hash {
     party: PhantomData<Party>,
     round_ids: PhantomData<RoundIDs>,
-    party_codec: PartyCodec,
-    outbound_config: PBFTProtoStateConfig
+    outbound_config: SingleRoundConfig<PBFTProtoStateConfig>
 }
 
 impl<RoundIDs, Party, Codec> ConsensusProto<Party, Codec>
-    for PBFTProto<RoundIDs, Party, Codec>
+    for PBFTProto<RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord,
@@ -67,14 +64,13 @@ where
 
     fn create(
         config: Self::Config,
-        codec: Codec
+        _codec: Codec
     ) -> Result<Self, Self::CreateError> {
         let outbound_config = config.take();
 
         Ok(PBFTProto {
             party: PhantomData,
             round_ids: PhantomData,
-            party_codec: codec,
             outbound_config: outbound_config
         })
     }
@@ -87,11 +83,11 @@ impl<RoundIDs, PartyID, Party, Codec>
         Party,
         Codec,
         StaticParties<PartyID>
-    > for PBFTProto<RoundIDs, Party, Codec>
+    > for PBFTProto<RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord + Send,
-    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
+    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize> + Ord,
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
     Codec: Clone + DatagramCodec<Party>
 {
@@ -106,7 +102,7 @@ where
         PBFTOutbound<RoundIDs::Item>
     >;
     type RoundsError<PartiesErr> = SingleRoundCreateError<
-        PBFTProtoStateCreateError<PartiesErr, Codec::EncodeError>,
+        Infallible,
         PBFTRoundStateCreateError<PartyID>
     >
     where PartiesErr: Display;
@@ -114,18 +110,8 @@ where
 
     fn rounds(
         &self,
-        round_ids: RoundIDs,
-        parties: StaticParties<PartyID>,
-        self_party: Party,
-        party_data: &[Party]
-    ) -> Result<Self::Rounds, Self::RoundsError<StaticPartiesError>> {
-        SingleRound::create(
-            round_ids,
-            self.party_codec.clone(),
-            parties,
-            self_party,
-            party_data,
-            self.outbound_config.clone()
-        )
+        round_ids: RoundIDs
+    ) -> Result<Self::Rounds, Self::RoundsError<Infallible>> {
+        SingleRound::create(round_ids, self.outbound_config.clone())
     }
 }
