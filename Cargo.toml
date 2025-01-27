@@ -54,8 +54,8 @@ unix = [
 [dependencies]
 asn1rs = { version = "0.3" }
 bitvec = { version = "1.0" }
-constellation-common = { git = "https://github.com/constellation-system/constellation-common.git", branch = "project/tech-debt", default-features = false }
-constellation-consensus-common = { git = "https://github.com/constellation-system/constellation-consensus-common.git", branch = "project/tech-debt", default-features = false }
+constellation-common = { git = "https://github.com/constellation-system/constellation-common.git", branch = "devel", default-features = false }
+constellation-consensus-common = { git = "https://github.com/constellation-system/constellation-consensus-common.git", branch = "devel", default-features = false }
 log = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 
