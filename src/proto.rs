@@ -22,7 +22,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use constellation_common::codec::DatagramCodec;
+use constellation_common::codec::Codec;
 use constellation_consensus_common::config::SingleRoundConfig;
 use constellation_consensus_common::parties::StaticParties;
 use constellation_consensus_common::proto::ConsensusProto;
@@ -51,20 +51,19 @@ where
     outbound_config: SingleRoundConfig<PBFTProtoStateConfig>
 }
 
-impl<RoundIDs, Party, Codec> ConsensusProto<Party, Codec>
-    for PBFTProto<RoundIDs, Party>
+impl<RoundIDs, Party, C> ConsensusProto<Party, C> for PBFTProto<RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord,
     Party: Clone + Display + Eq + Hash,
-    Codec: Clone + DatagramCodec<Party>
+    C: Clone + Codec<Party>
 {
     type Config = PBFTConfig;
     type CreateError = Infallible;
 
     fn create(
         config: Self::Config,
-        _codec: Codec
+        _codec: C
     ) -> Result<Self, Self::CreateError> {
         let outbound_config = config.take();
 
@@ -76,20 +75,15 @@ where
     }
 }
 
-impl<RoundIDs, PartyID, Party, Codec>
-    ConsensusProtoRounds<
-        RoundIDs,
-        PartyID,
-        Party,
-        Codec,
-        StaticParties<PartyID>
-    > for PBFTProto<RoundIDs, Party>
+impl<RoundIDs, PartyID, Party, C>
+    ConsensusProtoRounds<RoundIDs, PartyID, Party, C, StaticParties<PartyID>>
+    for PBFTProto<RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord + Send,
     PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize> + Ord,
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
-    Codec: Clone + DatagramCodec<Party>
+    C: Clone + Codec<Party>
 {
     type Msg = PbftMsg;
     type Out = PBFTOutbound<RoundIDs::Item>;
