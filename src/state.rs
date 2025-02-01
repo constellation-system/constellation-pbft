@@ -30,7 +30,7 @@ use std::mem::replace;
 
 use bitvec::prelude::bitvec;
 use bitvec::prelude::BitVec;
-use constellation_common::codec::DatagramCodec;
+use constellation_common::codec::Codec;
 use constellation_common::hashid::CompoundHashAlgo;
 use constellation_common::hashid::CompoundHashID;
 use constellation_common::hashid::HashAlgo;
@@ -1614,18 +1614,18 @@ where
     }
 }
 
-impl<PartyID, Party, Codec> ProtoStateSetParties<PartyID, Party, Codec>
+impl<PartyID, Party, C> ProtoStateSetParties<PartyID, Party, C>
     for PBFTProtoState<PartyID>
 where
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
     PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
-    Codec: DatagramCodec<Party>
+    C: Codec<Party>
 {
-    type SetPartiesError = Codec::EncodeError;
+    type SetPartiesError = C::EncodeError;
 
     fn set_parties(
         &mut self,
-        mut codec: Codec,
+        mut codec: C,
         self_party: Party,
         party_data: &[Party]
     ) -> Result<Vec<Option<PartyID>>, Self::SetPartiesError> {
