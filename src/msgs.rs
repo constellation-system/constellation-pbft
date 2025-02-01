@@ -203,6 +203,8 @@ use asn1rs::syn::io::UperReader;
 #[cfg(test)]
 use asn1rs::syn::io::UperWriter;
 #[cfg(test)]
+use constellation_common::codec::Codec;
+#[cfg(test)]
 use constellation_common::codec::DatagramCodec;
 
 #[cfg(test)]
