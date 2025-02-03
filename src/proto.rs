@@ -1,4 +1,4 @@
-// Copyright © 2024 The Johns Hopkins Applied Physics Laboratory LLC.
+// Copyright © 2024-25 The Johns Hopkins Applied Physics Laboratory LLC.
 //
 // This program is free software: you can redistribute it and/or
 // modify it under the terms of the GNU Affero General Public License,
@@ -101,11 +101,10 @@ where
         PbftMsg,
         PBFTOutbound<RoundIDs::Item>
     >;
-    type RoundsError<PartiesErr> = SingleRoundCreateError<
-        Infallible,
-        PBFTRoundStateCreateError<PartyID>
-    >
-    where PartiesErr: Display;
+    type RoundsError<PartiesErr>
+        = SingleRoundCreateError<Infallible, PBFTRoundStateCreateError<PartyID>>
+    where
+        PartiesErr: Display;
     type State = PBFTProtoState<PartyID>;
 
     fn rounds(
