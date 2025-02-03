@@ -8,3 +8,4 @@ guarantees at present.**
 
 * [Developer documentation for `devel` branch](https://constellation-system.github.io/constellation-pbft/index.html)
 * [Coverage reports for `devel` branch](https://constellation-system.github.io/constellation-pbft/coverage/index.html)
+* [Contribution guide](https://github.com/constellation-system/constellation-pbft/blob/devel/CONTRIBUTING.md)
