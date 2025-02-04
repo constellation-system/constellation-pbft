@@ -1,4 +1,4 @@
-// Copyright © 2024 The Johns Hopkins Applied Physics Laboratory LLC.
+// Copyright © 2024-25 The Johns Hopkins Applied Physics Laboratory LLC.
 //
 // This program is free software: you can redistribute it and/or
 // modify it under the terms of the GNU Affero General Public License,
@@ -238,7 +238,7 @@ where
 
                     // Add our own vote if we haven't voted already.
                     let is_lead_or_view =
-                        lead_party.map_or(true, |lead| lead == party);
+                        lead_party.is_none_or(|lead| lead == party);
 
                     if is_lead_or_view && self.commit.is_none() {
                         votes.set(self_party, true);
@@ -284,7 +284,7 @@ where
 
                     // Add our own vote if we haven't voted already.
                     let is_lead_or_view =
-                        lead_party.map_or(true, |lead| lead == party);
+                        lead_party.is_none_or(|lead| lead == party);
 
                     if is_lead_or_view && self.commit.is_none() {
                         votes.set(self_party, true);
@@ -767,7 +767,7 @@ where
 
                     // Add our own vote if we haven't voted already.
                     let is_lead_or_view =
-                        lead_party.map_or(true, |lead| lead == party);
+                        lead_party.is_none_or(|lead| lead == party);
 
                     if is_lead_or_view && self.prepared.is_none() {
                         votes.set(self_party, true);
@@ -801,7 +801,7 @@ where
 
                     // Add our own vote if we haven't voted already.
                     let is_lead_or_view =
-                        lead_party.map_or(true, |lead| lead == party);
+                        lead_party.is_none_or(|lead| lead == party);
 
                     if is_lead_or_view && self.prepared.is_none() {
                         votes.set(self_party, true);
@@ -1222,7 +1222,7 @@ where
                    request, party, round);
 
                 let is_lead_or_view =
-                    lead_party.map_or(true, |lead| lead == party);
+                    lead_party.is_none_or(|lead| lead == party);
 
                 if is_lead_or_view && self.prepared.is_none() {
                     out.send_prepare(&request);
