@@ -62,15 +62,22 @@ pub struct PBFTProtoStateConfig {
 }
 
 /// Configuration for the PBFT outbound message buffer.
-#[derive(
-    Clone, Debug, Default, Deserialize, PartialEq, PartialOrd, Serialize,
-)]
+#[derive(Clone, Debug, Deserialize, PartialEq, PartialOrd, Serialize)]
 #[serde(rename = "pbft-config")]
 #[serde(rename_all = "kebab-case")]
 #[serde(default)]
 pub struct PBFTOutboundConfig {
-    #[serde(default)]
+    #[serde(default = "PBFTOutboundConfig::default_retry")]
     retry: Retry
+}
+
+impl Default for PBFTOutboundConfig {
+    #[inline]
+    fn default() -> Self {
+        PBFTOutboundConfig {
+            retry: PBFTOutboundConfig::default_retry()
+        }
+    }
 }
 
 impl PBFTProtoStateConfig {
@@ -132,5 +139,9 @@ impl PBFTOutboundConfig {
     #[inline]
     pub fn take(self) -> Retry {
         self.retry
+    }
+
+    fn default_retry() -> Retry {
+        Retry::TERRESTRIAL_NETWORK_DEFAULT
     }
 }
