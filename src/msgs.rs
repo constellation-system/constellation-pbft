@@ -17,6 +17,7 @@
 // <https://www.gnu.org/licenses/>.
 
 //! Protocol messages.
+use std::convert::TryInto;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -50,24 +51,7 @@ where
         payload: Self::Payload
     ) -> Self {
         let round: u128 = round.into();
-        let round = vec![
-            (round >> 120) as u8,
-            (round >> 112) as u8,
-            (round >> 104) as u8,
-            (round >> 96) as u8,
-            (round >> 88) as u8,
-            (round >> 80) as u8,
-            (round >> 72) as u8,
-            (round >> 64) as u8,
-            (round >> 56) as u8,
-            (round >> 48) as u8,
-            (round >> 40) as u8,
-            (round >> 32) as u8,
-            (round >> 24) as u8,
-            (round >> 16) as u8,
-            (round >> 8) as u8,
-            round as u8,
-        ];
+        let round = round.to_le_bytes().to_vec();
 
         PbftMsg {
             round: round,
@@ -77,23 +61,11 @@ where
 
     #[inline]
     fn round_id(&self) -> RoundID {
-        let mut out = self.round[15] as u128;
+        let mut out = [0; 16];
 
-        out |= (self.round[14] as u128) << 8;
-        out |= (self.round[13] as u128) << 16;
-        out |= (self.round[12] as u128) << 24;
-        out |= (self.round[11] as u128) << 32;
-        out |= (self.round[10] as u128) << 40;
-        out |= (self.round[9] as u128) << 48;
-        out |= (self.round[8] as u128) << 56;
-        out |= (self.round[7] as u128) << 64;
-        out |= (self.round[6] as u128) << 72;
-        out |= (self.round[5] as u128) << 80;
-        out |= (self.round[4] as u128) << 88;
-        out |= (self.round[3] as u128) << 96;
-        out |= (self.round[2] as u128) << 104;
-        out |= (self.round[1] as u128) << 112;
-        out |= (self.round[0] as u128) << 120;
+        out.copy_from_slice(&self.round[..16]);
+
+        let out = u128::from_le_bytes(out);
 
         out.into()
     }
@@ -105,7 +77,10 @@ where
 
     #[inline]
     fn take(self) -> (RoundID, Self::Payload) {
-        (self.round_id(), self.content)
+        let round = self.round.try_into().expect("Impossible case");
+        let round = u128::from_le_bytes(round);
+
+        (round.into(), self.content)
     }
 }
 
