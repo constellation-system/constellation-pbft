@@ -23,6 +23,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use constellation_common::codec::Codec;
+use constellation_common::hashid::HashAlgo;
 use constellation_consensus_common::config::SingleRoundConfig;
 use constellation_consensus_common::parties::StaticParties;
 use constellation_consensus_common::proto::ConsensusProto;
@@ -41,22 +42,28 @@ use crate::state::PBFTProtoState;
 use crate::state::PBFTRoundStateCreateError;
 
 /// Castro-Liskov PBFT consensus protocol implementation.
-pub struct PBFTProto<RoundIDs, Party>
+pub struct PBFTProto<H, RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord,
-    Party: Clone + Eq + Hash {
+    Party: Clone + Eq + Hash,
+    H: HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash {
+    hash: PhantomData<H>,
     party: PhantomData<Party>,
     round_ids: PhantomData<RoundIDs>,
     outbound_config: SingleRoundConfig<PBFTProtoStateConfig>
 }
 
-impl<RoundIDs, Party, C> ConsensusProto<Party, C> for PBFTProto<RoundIDs, Party>
+impl<H, RoundIDs, Party, C> ConsensusProto<Party, C>
+    for PBFTProto<H, RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord,
     Party: Clone + Display + Eq + Hash,
-    C: Clone + Codec<Party>
+    C: Clone + Codec<Party>,
+    H: HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash
 {
     type Config = PBFTConfig;
     type CreateError = Infallible;
@@ -68,6 +75,7 @@ where
         let outbound_config = config.take();
 
         Ok(PBFTProto {
+            hash: PhantomData,
             party: PhantomData,
             round_ids: PhantomData,
             outbound_config: outbound_config
@@ -75,21 +83,23 @@ where
     }
 }
 
-impl<RoundIDs, PartyID, Party, C>
+impl<H, RoundIDs, PartyID, Party, C>
     ConsensusProtoRounds<RoundIDs, PartyID, Party, C, StaticParties<PartyID>>
-    for PBFTProto<RoundIDs, Party>
+    for PBFTProto<H, RoundIDs, Party>
 where
     RoundIDs: Iterator,
     RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord + Send,
     PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize> + Ord,
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
-    C: Clone + Codec<Party>
+    C: Clone + Codec<Party>,
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash
 {
     type Msg = PbftMsg;
     type Out = PBFTOutbound<RoundIDs::Item>;
     type RoundPartyIdx = OutboundPartyIdx;
     type Rounds = SingleRound<
-        PBFTProtoState<PartyID>,
+        PBFTProtoState<H, PartyID>,
         RoundIDs,
         PartyID,
         PbftMsg,
@@ -99,7 +109,7 @@ where
         = SingleRoundCreateError<Infallible, PBFTRoundStateCreateError<PartyID>>
     where
         PartiesErr: Display;
-    type State = PBFTProtoState<PartyID>;
+    type State = PBFTProtoState<H, PartyID>;
 
     fn rounds(
         &self,

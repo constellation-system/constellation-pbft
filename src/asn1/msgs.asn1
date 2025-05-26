@@ -23,6 +23,7 @@ PBFTUpdateAck ::= SEQUENCE {
 }
 
 PBFTContent ::= CHOICE {
+    Share OCTET STRING SIZE (1..1024),
     UpdateAck PBFTUpdateAck,
     Update PBFTStateUpdate,
     Ack PBFTAckState

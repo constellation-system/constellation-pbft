@@ -19,7 +19,6 @@
 //! Configuration objects.
 use std::time::Duration;
 
-use constellation_common::hashid::CompoundHashAlgo;
 use constellation_common::retry::Retry;
 use constellation_consensus_common::config::SingleRoundConfig;
 use serde::Deserialize;
@@ -65,9 +64,6 @@ pub struct PBFTProtoStateConfig {
     /// This will not trigger if there are no pending transactions.
     #[serde(default = "PBFTProtoStateConfig::default_view_change_stall_time")]
     view_change_stall_time: Option<Duration>,
-    /// Name of the hash function used on parties.
-    #[serde(default)]
-    party_hash: CompoundHashAlgo,
     /// Outbound buffer configurations.
     #[serde(default)]
     #[serde(flatten)]
@@ -87,7 +83,6 @@ impl Default for PBFTProtoStateConfig {
             view_change_time: PBFTProtoStateConfig::default_view_change_time(),
             view_change_stall_time:
                 PBFTProtoStateConfig::default_view_change_stall_time(),
-            party_hash: CompoundHashAlgo::default(),
             outbound: PBFTOutboundConfig::default()
         }
     }
@@ -115,7 +110,6 @@ impl Default for PBFTOutboundConfig {
 impl PBFTProtoStateConfig {
     #[inline]
     pub fn create(
-        party_hash: CompoundHashAlgo,
         outbound: PBFTOutboundConfig,
         view_change_rounds: usize,
         view_change_failures: usize,
@@ -129,14 +123,8 @@ impl PBFTProtoStateConfig {
             view_change_consecutive_failures: view_change_consecutive_failures,
             view_change_time: view_change_time,
             view_change_stall_time: view_change_stall_time,
-            party_hash: party_hash,
             outbound: outbound
         }
-    }
-
-    #[inline]
-    pub fn party_hash(&self) -> &CompoundHashAlgo {
-        &self.party_hash
     }
 
     #[inline]
@@ -173,7 +161,6 @@ impl PBFTProtoStateConfig {
     pub fn take(
         self
     ) -> (
-        CompoundHashAlgo,
         PBFTOutboundConfig,
         usize,
         usize,
@@ -182,7 +169,6 @@ impl PBFTProtoStateConfig {
         Option<Duration>
     ) {
         (
-            self.party_hash,
             self.outbound,
             self.view_change_rounds,
             self.view_change_failures,

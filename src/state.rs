@@ -18,6 +18,7 @@
 
 //! Core protocol state implementations for the Castro-Liskov PBFT
 //! consensus protocol.
+
 use std::array::TryFromSliceError;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -26,6 +27,7 @@ use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::mem::replace;
 use std::time::Duration;
 use std::time::Instant;
@@ -33,16 +35,20 @@ use std::time::Instant;
 use bitvec::prelude::bitvec;
 use bitvec::prelude::BitVec;
 use constellation_common::codec::Codec;
-use constellation_common::hashid::CompoundHashAlgo;
-use constellation_common::hashid::CompoundHashID;
 use constellation_common::hashid::HashAlgo;
+use constellation_common::hashid::HashID;
+use constellation_consensus_common::oper::OperBatch;
+use constellation_consensus_common::oper::OperBatchResult;
+use constellation_consensus_common::oper::OperBatches;
 use constellation_consensus_common::outbound::Outbound;
 use constellation_consensus_common::parties::Parties;
 use constellation_consensus_common::parties::PartyIDMap;
 use constellation_consensus_common::state::ProtoState;
 use constellation_consensus_common::state::ProtoStateRound;
 use constellation_consensus_common::state::ProtoStateSetParties;
+use constellation_consensus_common::state::ProtoStateSubmit;
 use constellation_consensus_common::state::RoundState;
+use constellation_consensus_common::state::RoundStateNotify;
 use constellation_consensus_common::state::RoundStateRecv;
 use constellation_consensus_common::state::RoundStateUpdate;
 use log::debug;
@@ -108,21 +114,23 @@ enum PBFTLeader<Party, Hint> {
 }
 
 /// Inter-round state for the Castro-Liskov PBFT consensus protocol.
-pub struct PBFTProtoState<Party>
+pub struct PBFTProtoState<H, Party>
 where
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash,
     Party: Clone + Display + Eq + Hash {
     /// Configuration for creating [PBFTOutbound]s.
     outbound_config: PBFTOutboundConfig,
     /// Hash algorithm to use for parties
-    hash: CompoundHashAlgo,
+    hash: H,
     /// Map from other parties to hashes.
-    party_hashes: HashMap<Party, CompoundHashID>,
+    party_hashes: HashMap<Party, H::HashID>,
     /// Map from hashes to other parties.
-    hash_parties: HashMap<CompoundHashID, Party>,
+    hash_parties: HashMap<H::HashID, Party>,
     /// Current leader.
     leader: PBFTLeader<Party, Option<PBFTLeaderHint<Party>>>,
     /// Hash for this party.
-    self_hash: CompoundHashID,
+    self_hash: H::HashID,
     /// Number of rounds before we start proposing view changes.
     view_change_rounds: usize,
     /// Number of consecutive failed rounds before we start proposing
@@ -137,7 +145,9 @@ where
     /// proposing view changes.
     ///
     /// This will not trigger if there are no pending transactions.
-    view_change_stall_time: Option<Duration>
+    view_change_stall_time: Option<Duration>,
+    /// Pending requests.
+    pending: OperBatches<H::HashID>
 }
 
 /// State for preparation of a request.
@@ -146,7 +156,9 @@ where
 /// need to store the deadline at which we can propose view changes in
 /// the `None` variant.
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum PreparedReq<Req> {
+enum PreparedReq<H, Req>
+where
+    H: HashID {
     /// We have already prepared a request.
     Prepared {
         /// The request we prepared.
@@ -157,18 +169,21 @@ enum PreparedReq<Req> {
         /// Time at whcih view changes will be proposed.
         deadline: Option<Instant>,
         /// Who to vote for as leader if a view change is originated.
-        leader_vote: CompoundHashID
+        leader_vote: H
     }
 }
 
 /// PBFT state for the "prepare" phase.
-pub struct PrepareState<Req: Clone + Display + Eq + Hash> {
+pub struct PrepareState<H, Req>
+where
+    Req: Clone + Display + Eq + Hash,
+    H: HashID {
     /// Number of parties.
     nparties: usize,
     /// Quorum size.
     quorum: usize,
     /// The value for which we sent a prepare.
-    prepared: PreparedReq<Req>,
+    prepared: PreparedReq<H, Req>,
     /// Prepare vote counts for each value.
     prepare_votes: HashMap<Req, BitVec>,
     /// Which parties have voted.
@@ -194,7 +209,11 @@ pub struct PrepareState<Req: Clone + Display + Eq + Hash> {
 }
 
 /// PBFT state for the "commit" state.
-pub struct CommitState<Req: Clone + Display + Eq + Hash> {
+pub struct CommitState<H, Req>
+where
+    Req: Clone + Display + Eq + Hash,
+    H: HashID {
+    hash: PhantomData<H>,
     /// Number of parties.
     nparties: usize,
     /// The value for which we sent a commit.
@@ -231,9 +250,12 @@ pub enum PBFTRoundInfo<Party> {
 
 /// Per-round state machine for the Castro-Liskov PBFT consensus
 /// protocol.
-pub enum PBFTRoundState<Req: Clone + Display + Eq + Hash> {
-    Prepare { prepare: PrepareState<Req> },
-    Commit { commit: CommitState<Req> }
+pub enum PBFTRoundState<H, Req>
+where
+    Req: Clone + Display + Eq + Hash,
+    H: HashID {
+    Prepare { prepare: PrepareState<H, Req> },
+    Commit { commit: CommitState<H, Req> }
 }
 
 /// Round result for [PBFTRoundState].
@@ -261,14 +283,118 @@ pub enum PBFTProtoStateCreateError<Parties, Encode> {
 }
 
 /// Errors that can occur updating a [PBFTProtoState].
-pub enum PBFTProtoStateUpdateError {
-    BadParty { id: CompoundHashID },
-    BadSize { err: TryFromSliceError }
+pub enum PBFTProtoStateUpdateError<H>
+where
+    H: Display + HashID {
+    BadParty { id: H },
+    BadSize { err: TryFromSliceError },
+    BadPayload { size: usize }
 }
 
-impl<Req> CommitState<Req>
+#[derive(Debug)]
+pub enum PBFTBatchError {
+    Hash { err: TryFromSliceError },
+    BadSize { size: usize }
+}
+
+fn payload_hashes<H>(
+    hash: &H,
+    bytes: &[u8]
+) -> Result<Vec<H::HashID>, PBFTBatchError>
 where
-    Req: Clone + Display + Eq + Hash
+    H: HashAlgo {
+    let nbytes = bytes.len();
+    let hash_len = hash.hash_len();
+
+    if nbytes % hash_len == 0 {
+        let nhashes = nbytes / hash_len;
+        let mut hashes = Vec::with_capacity(nhashes);
+
+        for i in 0..nhashes {
+            let bytes = &bytes[hash_len * i..hash_len * (i + 1)];
+            let hash = hash
+                .wrap_hashed_bytes(bytes)
+                .map_err(|err| PBFTBatchError::Hash { err: err })?;
+
+            hashes.push(hash)
+        }
+
+        Ok(hashes)
+    } else {
+        Err(PBFTBatchError::BadSize { size: nbytes })
+    }
+}
+
+impl<H, Req> OperBatch<H> for PBFTRoundResult<Req>
+where
+    Req: OperBatch<H>,
+    H: HashAlgo
+{
+    type BatchError = Req::BatchError;
+
+    fn take_batch(
+        self,
+        hash: &H
+    ) -> Result<OperBatchResult<H::HashID, Self>, Self::BatchError> {
+        match self {
+            PBFTRoundResult::Complete { req } => {
+                req.take_batch(hash).map(|res| match res {
+                    OperBatchResult::None(req) => {
+                        OperBatchResult::None(PBFTRoundResult::Complete {
+                            req: req
+                        })
+                    }
+                    OperBatchResult::Hashes(hashes) => {
+                        OperBatchResult::Hashes(hashes)
+                    }
+                })
+            }
+            req => Ok(OperBatchResult::None(req))
+        }
+    }
+}
+
+impl<H> OperBatch<H> for PbftRequest
+where
+    H: HashAlgo
+{
+    type BatchError = PBFTBatchError;
+
+    fn take_batch(
+        self,
+        hash: &H
+    ) -> Result<OperBatchResult<H::HashID, Self>, Self::BatchError> {
+        match self {
+            PbftRequest::Payload(bytes) => {
+                payload_hashes(hash, &bytes).map(OperBatchResult::Hashes)
+            }
+            req => Ok(OperBatchResult::None(req))
+        }
+    }
+}
+
+impl<H> From<Vec<H>> for PbftRequest
+where
+    H: HashID
+{
+    fn from(hashes: Vec<H>) -> PbftRequest {
+        let nhashes = hashes.len();
+        let hash_len = hashes[0].hash_len();
+        let mut bytes = vec![0; nhashes * hash_len];
+
+        for (i, hash) in hashes.into_iter().enumerate() {
+            bytes[hash_len * i..hash_len * (i + 1)]
+                .copy_from_slice(hash.bytes());
+        }
+
+        PbftRequest::Payload(bytes)
+    }
+}
+
+impl<H, Req> CommitState<H, Req>
+where
+    Req: Clone + Display + Eq + Hash,
+    H: HashID
 {
     /// Record a commit vote by a given party.
     ///
@@ -412,7 +538,7 @@ where
         out: &mut Out,
         round: &Round,
         party: usize
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -472,7 +598,7 @@ where
         lead_party: Option<usize>,
         party: usize,
         request: Req
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -489,7 +615,7 @@ where
         lead_party: Option<usize>,
         party: usize,
         request: Req
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -507,7 +633,7 @@ where
         party: usize,
         request: Req,
         complete: bool
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -624,15 +750,16 @@ where
     }
 }
 
-impl<Req> PrepareState<Req>
+impl<H, Req> PrepareState<H, Req>
 where
-    Req: Clone + Display + Eq + Hash
+    Req: Clone + Display + Eq + Hash,
+    H: HashID
 {
     /// Create a new `PrepareState` for a non-leader node.
     fn new(
         nparties: usize,
         deadline: Option<Instant>,
-        leader_vote: CompoundHashID
+        leader_vote: H
     ) -> Self {
         let nfaults = (nparties - 1) / 3;
         let quorum = nparties - nfaults;
@@ -692,13 +819,14 @@ where
 
     /// Convert this into a [CommitState].
     #[inline]
-    fn into_commit(self) -> CommitState<Req> {
+    fn into_commit(self) -> CommitState<H, Req> {
         let commit = match self.prepared {
             PreparedReq::Prepared { req } => Some(req),
             PreparedReq::None { .. } => None
         };
 
         CommitState {
+            hash: PhantomData,
             nparties: self.nparties,
             quorum: self.quorum,
             completed: self.completed,
@@ -983,7 +1111,7 @@ where
         out: &mut Out,
         round: &Round,
         party: usize
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -1058,7 +1186,7 @@ where
         lead_party: Option<usize>,
         party: usize,
         request: Req
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -1206,7 +1334,7 @@ where
         lead_party: Option<usize>,
         party: usize,
         request: Req
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -1223,7 +1351,7 @@ where
         lead_party: Option<usize>,
         party: usize,
         request: Req
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -1241,7 +1369,7 @@ where
         party: usize,
         request: Req,
         complete: bool
-    ) -> RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>
+    ) -> RoundStateUpdate<PBFTRoundState<H, Req>, PBFTRoundResult<Req>>
     where
         Out: PBFTOutboundSend<Req>,
         Round: Display {
@@ -1440,16 +1568,17 @@ where
     }
 }
 
-impl<Req> PBFTRoundState<Req>
+impl<H, Req> PBFTRoundState<H, Req>
 where
-    Req: Clone + Display + Eq + Hash
+    Req: Clone + Display + Eq + Hash,
+    H: HashID
 {
     /// Create a new `PBFTRoundState` for a non-leader party.
     #[inline]
     fn new(
         nparties: usize,
         deadline: Option<Instant>,
-        leader_vote: CompoundHashID
+        leader_vote: H
     ) -> Self {
         PBFTRoundState::Prepare {
             prepare: PrepareState::new(nparties, deadline, leader_vote)
@@ -1614,9 +1743,11 @@ where
     }
 }
 
-impl<Party> PBFTProtoState<Party>
+impl<H, Party> PBFTProtoState<H, Party>
 where
-    Party: Clone + Display + Eq + Hash
+    Party: Clone + Display + Eq + Hash,
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash
 {
     #[inline]
     fn nparties(&self) -> usize {
@@ -1626,7 +1757,8 @@ where
     fn hash_to_party(
         &self,
         id: &[u8]
-    ) -> Result<PBFTLeaderHint<Party>, PBFTProtoStateUpdateError> {
+    ) -> Result<PBFTLeaderHint<Party>, PBFTProtoStateUpdateError<H::HashID>>
+    {
         let id = self
             .hash
             .wrap_hashed_bytes(id)
@@ -1647,7 +1779,8 @@ where
     fn highest_votes(
         &self,
         votes: PBFTVoteCounts<PbftRequest>
-    ) -> Result<Vec<PBFTLeaderHint<Party>>, PBFTProtoStateUpdateError> {
+    ) -> Result<Vec<PBFTLeaderHint<Party>>, PBFTProtoStateUpdateError<H::HashID>>
+    {
         let size = votes.commit.len();
         let size = votes
             .prepare
@@ -1700,7 +1833,7 @@ where
     fn update_leader_hint(
         &mut self,
         votes: PBFTVoteCounts<PbftRequest>
-    ) -> Result<(), PBFTProtoStateUpdateError> {
+    ) -> Result<(), PBFTProtoStateUpdateError<H::HashID>> {
         // If there is no leader, update the hint.
         if let PBFTLeader::None { .. } = &self.leader {
             let mut best = self.highest_votes(votes)?;
@@ -1722,12 +1855,36 @@ where
     }
 }
 
-impl<PartyID, Party, C> ProtoStateSetParties<PartyID, Party, C>
-    for PBFTProtoState<PartyID>
+impl<H, Party> ProtoStateSubmit<H::HashID> for PBFTProtoState<H, Party>
+where
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash,
+    Party: Clone + Display + Eq + Hash
+{
+    type SubmitError = Infallible;
+
+    #[inline]
+    fn submit_elems<I>(
+        &mut self,
+        hashes: I
+    ) -> Result<(), Self::SubmitError>
+    where
+        I: Iterator<Item = H::HashID> {
+        // Actually submit the hashes.
+        self.pending.submit_hashes(hashes);
+
+        Ok(())
+    }
+}
+
+impl<H, PartyID, Party, C> ProtoStateSetParties<PartyID, Party, C>
+    for PBFTProtoState<H, PartyID>
 where
     Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
     PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
-    C: Codec<Party>
+    C: Codec<Party>,
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash
 {
     type SetPartiesError = C::EncodeError;
 
@@ -1760,18 +1917,20 @@ where
     }
 }
 
-impl<RoundID, PartyID> ProtoState<RoundID, PartyID> for PBFTProtoState<PartyID>
+impl<H, RoundID, PartyID> ProtoState<RoundID, PartyID>
+    for PBFTProtoState<H, PartyID>
 where
-    PartyID: Clone + Display + Eq + Hash + Into<usize>
+    PartyID: Clone + Display + Eq + Hash + Into<usize>,
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash
 {
     type Config = PBFTProtoStateConfig;
     type CreateError = Infallible;
     type Oper = PBFTRoundResult<PbftRequest>;
-    type UpdateError = PBFTProtoStateUpdateError;
+    type UpdateError = PBFTProtoStateUpdateError<H::HashID>;
 
     fn create(config: Self::Config) -> Result<Self, Self::CreateError> {
         let (
-            hash,
             outbound_config,
             view_change_rounds,
             view_change_failures,
@@ -1779,6 +1938,7 @@ where
             view_change_time,
             view_change_stall_time
         ) = config.take();
+        let hash = H::default();
         let self_hash = hash.null_hash();
         let party_hashes = HashMap::new();
         let hash_parties = HashMap::new();
@@ -1793,6 +1953,9 @@ where
             party_hashes: party_hashes,
             hash_parties: hash_parties,
             leader: PBFTLeader::None { hint: None },
+            // XXX use a size hint here.  Also calculate number of
+            // hashes per payload.
+            pending: OperBatches::new(16),
             self_hash: self_hash,
             hash: hash
         })
@@ -1865,8 +2028,24 @@ where
                 Ok(())
             }
             PBFTRoundResult::Complete {
-                req: PbftRequest::Payload(_)
+                req: PbftRequest::Payload(payload)
             } => {
+                let hashes =
+                    payload_hashes(&self.hash, &payload).map_err(|err| {
+                        match err {
+                            PBFTBatchError::Hash { err } => {
+                                PBFTProtoStateUpdateError::BadSize { err: err }
+                            }
+                            PBFTBatchError::BadSize { size } => {
+                                PBFTProtoStateUpdateError::BadPayload {
+                                    size: size
+                                }
+                            }
+                        }
+                    })?;
+
+                self.pending.clear_hashes(hashes.iter());
+
                 if let PBFTLeader::Other {
                     nconsecutive_failures,
                     stall_start,
@@ -1900,27 +2079,29 @@ where
     }
 }
 
-impl<RoundID, PartyID>
+impl<H, RoundID, PartyID>
     ProtoStateRound<RoundID, PartyID, PbftMsg, PBFTOutbound<RoundID>>
-    for PBFTProtoState<PartyID>
+    for PBFTProtoState<H, PartyID>
 where
     RoundID: Clone + Display + From<u128> + Into<u128> + Ord,
-    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>
+    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash
 {
     type CreateRoundError = PBFTRoundStateCreateError<PartyID>;
     type Info = PBFTRoundInfo<OutboundPartyIdx>;
-    type Round = PBFTRoundState<PbftRequest>;
+    type Round = PBFTRoundState<H::HashID, PbftRequest>;
 
     fn create_round(
         &mut self,
         parties: &PartyIDMap<OutboundPartyIdx, PartyID>
     ) -> Result<
-        Option<(
+        (
             Self::Round,
             PBFTRoundInfo<OutboundPartyIdx>,
             PBFTOutbound<RoundID>,
             Option<Instant>
-        )>,
+        ),
         PBFTRoundStateCreateError<PartyID>
     > {
         let nparties = self.nparties();
@@ -1982,21 +2163,34 @@ where
                         )
                     };
 
-                    Ok(Some((round, info, out, deadline)))
+                    Ok((round, info, out, deadline))
                 }
                 None => Err(PBFTRoundStateCreateError::BadParty {
                     party: party.clone()
                 })
             },
             PBFTLeader::This => {
-                //                let info = PBFTRoundInfo::This;
+                let info = PBFTRoundInfo::This;
+                let round = match self.pending.get_batch() {
+                    Some(req) => {
+                        debug!(target: "pbft-proto-state",
+                               "we are the leader, generating regular round");
 
-                debug!(target: "pbft-proto-state",
-                       "we are the leader, not generating round");
+                        PBFTRoundState::with_req(&mut out, nparties, req)
+                    }
+                    None => {
+                        debug!(target: "pbft-proto-state",
+                               "we are the leader, no batches to submit");
 
-                // ISSUE #7: This is temporary, for testing.  The
-                // leader needs to generate a proposal here.
-                Ok(None)
+                        PBFTRoundState::new(
+                            nparties,
+                            None,
+                            self.self_hash.clone()
+                        )
+                    }
+                };
+
+                Ok((round, info, out, None))
             }
             // There is no leader, but we have a hint proposing ourself.
             PBFTLeader::None {
@@ -2009,7 +2203,7 @@ where
                 let round = PBFTRoundState::with_req(&mut out, nparties, req);
                 let info = PBFTRoundInfo::None;
 
-                Ok(Some((round, info, out, None)))
+                Ok((round, info, out, None))
             }
             // There is no leader, but we have a hint proposing someone else.
             PBFTLeader::None {
@@ -2027,7 +2221,7 @@ where
                         let round =
                             PBFTRoundState::with_req(&mut out, nparties, req);
 
-                        Ok(Some((round, info, out, None)))
+                        Ok((round, info, out, None))
                     }
                     // This shouldn't ever happen.
                     None => Err(PBFTRoundStateCreateError::BadHint {
@@ -2042,7 +2236,7 @@ where
 
                 // ISSUE #4: this needs a better mechanism for picking
                 // a leader.
-                let parties: Vec<&CompoundHashID> =
+                let parties: Vec<&H::HashID> =
                     self.party_hashes.values().collect();
                 let idx = (random::<usize>() % parties.len()) + 1;
                 let info = PBFTRoundInfo::None;
@@ -2056,15 +2250,72 @@ where
                 let req = PbftRequest::view_change(hash);
                 let round = PBFTRoundState::with_req(&mut out, nparties, req);
 
-                Ok(Some((round, info, out, None)))
+                Ok((round, info, out, None))
             }
         }
     }
 }
 
-impl<Out> RoundState<Out> for PBFTRoundState<PbftRequest>
+impl<Out, H, PartyID> RoundStateNotify<Out, PBFTProtoState<H, PartyID>>
+    for PBFTRoundState<H::HashID, PbftRequest>
 where
-    Out: PBFTOutboundSend<PbftRequest>
+    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
+    Out: PBFTOutboundSend<PbftRequest>,
+    H: Default + HashAlgo,
+    H::HashID: Clone + Display + Eq + Hash
+{
+    type NotifyError = Infallible;
+
+    fn notify_update(
+        mut self,
+        state: &mut PBFTProtoState<H, PartyID>,
+        out: &mut Out
+    ) -> Result<Self, Self::NotifyError> {
+        // We can only generate a request if we're the leader.
+        if matches!(&state.leader, PBFTLeader::This) {
+            // We can only generate a request in the prepare state.
+            if let PBFTRoundState::Prepare { prepare } = &mut self {
+                // We can only generate a request if we haven't already voted.
+                if let PreparedReq::None { .. } = &prepare.prepared {
+                    // We haven't prepared anything yet; try to generate a
+                    // request.
+                    let nparties = prepare.prepare_voted.len();
+
+                    if let Some(req) = state.pending.get_batch::<PbftRequest>()
+                    {
+                        // We generated a request, cast our vote and
+                        // send it.
+                        match prepare.prepare_votes.entry(req.clone()) {
+                            Entry::Vacant(ent) => {
+                                let mut votes = bitvec![0; nparties];
+
+                                votes.set(0, true);
+
+                                ent.insert(votes);
+                            }
+                            Entry::Occupied(mut votes) => {
+                                votes.get_mut().set(0, true);
+                            }
+                        }
+
+                        out.send_prepare(&req);
+                        prepare.prepare_remaining -= 1;
+                        prepare.prepare_lead = prepare.prepare_lead.max(1);
+                        prepare.prepare_voted.set(0, true);
+                        prepare.prepared = PreparedReq::Prepared { req: req };
+                    }
+                }
+            }
+        }
+
+        Ok(self)
+    }
+}
+
+impl<H, Out> RoundState<Out> for PBFTRoundState<H, PbftRequest>
+where
+    Out: PBFTOutboundSend<PbftRequest>,
+    H: HashID
 {
     fn time_update(
         mut self,
@@ -2083,14 +2334,22 @@ where
                     let req = PbftRequest::view_change(leader_vote);
                     let nparties = prepare.prepare_voted.len();
 
-                    // Record our own vote.
-                    let mut votes = bitvec![0; nparties];
+                    match prepare.prepare_votes.entry(req.clone()) {
+                        Entry::Vacant(ent) => {
+                            let mut votes = bitvec![0; nparties];
 
-                    votes.set(0, true);
-                    prepare.prepare_votes.insert(req.clone(), votes);
+                            votes.set(0, true);
+
+                            ent.insert(votes);
+                        }
+                        Entry::Occupied(mut votes) => {
+                            votes.get_mut().set(0, true);
+                        }
+                    }
+
                     prepare.prepare_voted.set(0, true);
                     prepare.prepare_remaining -= 1;
-                    prepare.prepare_lead = 1;
+                    prepare.prepare_lead = prepare.prepare_lead.max(1);
                     out.send_prepare(&req);
                     prepare.prepared = PreparedReq::Prepared { req: req };
 
@@ -2118,7 +2377,7 @@ where
     }
 }
 
-impl<RoundID, Party, Out>
+impl<H, RoundID, Party, Out>
     RoundStateRecv<
         RoundID,
         Party,
@@ -2126,11 +2385,12 @@ impl<RoundID, Party, Out>
         PbftContent,
         PBFTRoundInfo<Party>,
         Out
-    > for PBFTRoundState<PbftRequest>
+    > for PBFTRoundState<H, PbftRequest>
 where
     Out: Outbound<RoundID, PbftMsg> + PBFTOutboundSend<PbftRequest>,
     RoundID: Clone + Display + From<u128> + Into<u128> + Ord,
-    Party: Clone + Display + From<usize> + Into<usize>
+    Party: Clone + Display + From<usize> + Into<usize>,
+    H: HashID
 {
     fn recv(
         self,
@@ -2198,7 +2458,24 @@ where
     }
 }
 
-impl Display for PBFTProtoStateUpdateError {
+impl Display for PBFTBatchError {
+    fn fmt(
+        &self,
+        f: &mut Formatter<'_>
+    ) -> Result<(), Error> {
+        match self {
+            PBFTBatchError::Hash { err } => write!(f, "{}", err),
+            PBFTBatchError::BadSize { size } => {
+                write!(f, "bad payload size {}", size)
+            }
+        }
+    }
+}
+
+impl<H> Display for PBFTProtoStateUpdateError<H>
+where
+    H: Display + HashID
+{
     fn fmt(
         &self,
         f: &mut Formatter<'_>
@@ -2207,6 +2484,9 @@ impl Display for PBFTProtoStateUpdateError {
             PBFTProtoStateUpdateError::BadSize { err } => write!(f, "{}", err),
             PBFTProtoStateUpdateError::BadParty { id } => {
                 write!(f, "bad party hash: {}", id)
+            }
+            PBFTProtoStateUpdateError::BadPayload { size } => {
+                write!(f, "bad payload size {}", size)
             }
         }
     }
@@ -2304,7 +2584,7 @@ fn check_votes<Req>(
 
 #[cfg(test)]
 fn check_consistency<Req: Clone>(
-    state: &RoundStateUpdate<PBFTRoundState<Req>, PBFTRoundResult<Req>>,
+    state: &RoundStateUpdate<PBFTRoundState<SHA3ID, Req>, PBFTRoundResult<Req>>,
     outbound: &TestOutbound<Req>,
     prepare_votes: &HashMap<usize, Req>,
     commit_votes: &HashMap<usize, Req>,
@@ -2493,18 +2773,18 @@ const TOLERANCES: [(usize, usize); 102] = [
 
 #[cfg(test)]
 use constellation_common::hashid::SHA3Algo;
+#[cfg(test)]
+use constellation_common::hashid::SHA3ID;
 
 #[test]
 fn test_new() {
     init();
 
-    let hash = CompoundHashID::SHA3 {
-        sha3: SHA3Algo::wrap_hashed_bytes(&SHA3Algo::default(), &[0; 64])
-            .expect("expected success")
-    };
+    let hash = SHA3Algo::wrap_hashed_bytes(&SHA3Algo::default(), &[0; 64])
+        .expect("expected success");
 
     for (nparties, nfaults) in TOLERANCES {
-        let state: PBFTRoundState<usize> =
+        let state: PBFTRoundState<SHA3ID, usize> =
             PBFTRoundState::new(nparties, None, hash.clone());
 
         match state {
@@ -2535,7 +2815,7 @@ fn test_leader() {
     for (nparties, nfaults) in TOLERANCES {
         let mut outbound = TestOutbound::new();
         let proposal = 2;
-        let state: PBFTRoundState<usize> =
+        let state: PBFTRoundState<SHA3ID, usize> =
             PBFTRoundState::with_req(&mut outbound, nparties, proposal);
         let expect_prepare = [(0, proposal)].iter().cloned().collect();
 
@@ -2598,24 +2878,22 @@ fn consensus_test<F>(
     ops: &[ConsensusTestOp],
     check: F
 ) where
-    F: FnOnce(RoundStateUpdate<PBFTRoundState<usize>, PBFTRoundResult<usize>>) {
+    F: FnOnce(
+        RoundStateUpdate<PBFTRoundState<SHA3ID, usize>, PBFTRoundResult<usize>>
+    ) {
     init();
 
     let round = 1337;
     let nparties = 10;
     let mut outbound = TestOutbound::new();
-    let state: PBFTRoundState<usize> = match init_proposal {
+    let state: PBFTRoundState<SHA3ID, usize> = match init_proposal {
         Some(proposal) => {
             PBFTRoundState::with_req(&mut outbound, nparties, proposal)
         }
         None => {
-            let hash = CompoundHashID::SHA3 {
-                sha3: SHA3Algo::wrap_hashed_bytes(
-                    &SHA3Algo::default(),
-                    &[0; 64]
-                )
-                .expect("expected success")
-            };
+            let hash =
+                SHA3Algo::wrap_hashed_bytes(&SHA3Algo::default(), &[0; 64])
+                    .expect("expected success");
 
             PBFTRoundState::new(nparties, None, hash)
         }

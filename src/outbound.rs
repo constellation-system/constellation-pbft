@@ -475,6 +475,7 @@ where
     ) -> Result<(), Self::RecvError> {
         let party_idx: usize = party.clone().into();
         let (ack, update) = match msg {
+            PbftContent::Share(_) => (None, None),
             PbftContent::UpdateAck(PbftUpdateAck { update, ack }) => {
                 (Some(ack), Some(update))
             }
