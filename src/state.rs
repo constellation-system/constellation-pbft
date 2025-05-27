@@ -38,7 +38,6 @@ use constellation_common::codec::Codec;
 use constellation_common::hashid::HashAlgo;
 use constellation_common::hashid::HashID;
 use constellation_consensus_common::oper::OperBatch;
-use constellation_consensus_common::oper::OperBatchResult;
 use constellation_consensus_common::oper::OperBatches;
 use constellation_consensus_common::outbound::Outbound;
 use constellation_consensus_common::parties::Parties;
@@ -260,8 +259,16 @@ where
 
 /// Round result for [PBFTRoundState].
 pub enum PBFTRoundResult<Req> {
-    Complete { req: Req },
-    Fail { fail: PBFTVoteCounts<Req> }
+    /// The round successfully completed.
+    Complete {
+        /// The request that won.
+        req: Req
+    },
+    /// The round failed.
+    Fail {
+        /// The final vote counts.
+        fail: PBFTVoteCounts<Req>
+    }
 }
 
 /// Vote counts from a failed PBFT round.
@@ -335,21 +342,10 @@ where
     fn take_batch(
         self,
         hash: &H
-    ) -> Result<OperBatchResult<H::HashID, Self>, Self::BatchError> {
+    ) -> Result<Option<Vec<H::HashID>>, Self::BatchError> {
         match self {
-            PBFTRoundResult::Complete { req } => {
-                req.take_batch(hash).map(|res| match res {
-                    OperBatchResult::None(req) => {
-                        OperBatchResult::None(PBFTRoundResult::Complete {
-                            req: req
-                        })
-                    }
-                    OperBatchResult::Hashes(hashes) => {
-                        OperBatchResult::Hashes(hashes)
-                    }
-                })
-            }
-            req => Ok(OperBatchResult::None(req))
+            PBFTRoundResult::Complete { req } => req.take_batch(hash),
+            _ => Ok(None)
         }
     }
 }
@@ -363,12 +359,12 @@ where
     fn take_batch(
         self,
         hash: &H
-    ) -> Result<OperBatchResult<H::HashID, Self>, Self::BatchError> {
+    ) -> Result<Option<Vec<H::HashID>>, Self::BatchError> {
         match self {
             PbftRequest::Payload(bytes) => {
-                payload_hashes(hash, &bytes).map(OperBatchResult::Hashes)
+                payload_hashes(hash, &bytes).map(Some)
             }
-            req => Ok(OperBatchResult::None(req))
+            _ => Ok(None)
         }
     }
 }
@@ -487,6 +483,10 @@ where
                     self.commit_voted.set(party, true);
                     self.commit_remaining -= 1;
                     self.commit_lead = self.commit_lead.max(votes.count_ones());
+
+                    debug!(target: "pbft",
+                           "commit vote recorded, {} remaining, lead has {}",
+                           self.commit_remaining, self.commit_lead);
 
                     votes.count_ones() >= self.quorum
                 }
@@ -768,6 +768,9 @@ where
             deadline: deadline
         };
 
+        debug!(target: "pbft",
+               "originating round with no prepare vote from us");
+
         PrepareState {
             quorum: quorum,
             nparties: nparties,
@@ -791,6 +794,10 @@ where
     ) -> Self {
         let nfaults = (nparties - 1) / 3;
         let quorum = nparties - nfaults;
+
+        debug!(target: "pbft",
+               "originating round with our prepare vote for {}",
+               request);
 
         // Record our own vote.
         let mut votes = bitvec![0; nparties];
@@ -893,6 +900,10 @@ where
                     self.commit_remaining -= 1;
                     self.commit_lead = self.commit_lead.max(votes.count_ones());
 
+                    debug!(target: "pbft",
+                           "commit vote recorded, {} remaining, lead has {}",
+                           self.commit_remaining, self.commit_lead);
+
                     votes.count_ones() >= self.quorum
                 }
             }
@@ -926,6 +937,11 @@ where
                         self.commit_remaining -= 1;
                         self.commit_lead =
                             self.commit_lead.max(votes.count_ones());
+
+                        debug!(target: "pbft",
+                               concat!("commit self-vote recorded, {} ",
+                                       "remaining, lead has {}"),
+                               self.commit_remaining, self.commit_lead);
                     } else {
                         error!(target: "pbft",
                                concat!("commit self-vote already recorded ",
@@ -943,6 +959,11 @@ where
                     self.commit_voted.set(self_party, true);
                     self.commit_remaining -= 1;
                     self.commit_lead = self.commit_lead.max(votes.count_ones());
+
+                    debug!(target: "pbft",
+                           concat!("commit self-vote recorded, {} ",
+                                   "remaining, lead has {}"),
+                           self.commit_remaining, self.commit_lead);
 
                     votes.count_ones() >= self.quorum
                 }
@@ -970,6 +991,16 @@ where
     ) -> bool
     where
         Round: Display {
+        if let Some(lead_party) = lead_party {
+            trace!(target: "pbft",
+                   "logging prepare vote for {} from {} for round {} ({})",
+                   request, party, round, lead_party);
+        } else {
+            trace!(target: "pbft",
+                   "logging prepare vote for {} from {} for round {} (none)",
+                   request, party, round);
+        }
+
         if self_party != party {
             match self.prepare_votes.entry(request.clone()) {
                 // Entry already exists.
@@ -1131,6 +1162,10 @@ where
 
                 self.prepare_voted.set(party, true);
                 self.prepare_remaining -= 1;
+
+                debug!(target: "pbft",
+                   "fail prepare vote recorded, {} remaining, lead has {}",
+                   self.prepare_remaining, self.prepare_lead);
             }
 
             if !self.commit_voted[party] {
@@ -1144,8 +1179,8 @@ where
                 self.commit_remaining -= 1;
 
                 debug!(target: "pbft",
-                   "fail vote recorded, {} remaining, lead has {}",
-                   self.prepare_remaining, self.prepare_lead);
+                   "fail commit vote recorded, {} remaining, lead has {}",
+                   self.commit_remaining, self.commit_lead);
             }
 
             if self.has_failed() {
@@ -1242,9 +1277,6 @@ where
             debug!(target: "pbft",
                "received prepare ({}) from {} for round {}",
                request, party, round);
-            trace!(target: "pbft",
-               "logging prepare vote for {} from {} for round {}",
-               request, party, round);
 
             let prepared_was_empty =
                 matches!(self.prepared, PreparedReq::None { .. });
@@ -1288,11 +1320,14 @@ where
                 } else {
                     // Begin the commit phase.
                     debug!(target: "pbft",
-                       "entering commit phase for {} for round {}",
-                       request, round);
+                           "entering commit phase for round {}",
+                           round);
 
                     if let PreparedReq::Prepared { req } = &self.prepared {
                         out.send_commit(req);
+                    } else {
+                        error!(target: "pbft",
+                               "entering commit phase with no prepared vote");
                     }
 
                     RoundStateUpdate::Pending {
@@ -1437,10 +1472,6 @@ where
             // First, see if we need to record a prepare vote
             if !self.prepare_voted[party] {
                 // We need to record a prepare vote.
-                trace!(target: "pbft",
-                   "logging prepare vote for {} from {} for round {}",
-                   request, party, round);
-
                 let is_lead_or_view =
                     lead_party.is_none_or(|lead| lead == party);
 
@@ -1493,8 +1524,16 @@ where
                     } else {
                         // Begin the commit phase.
                         debug!(target: "pbft",
-                           "entering commit phase for {} for round {}",
-                           request, round);
+                           "entering commit phase for round {}",
+                           round);
+
+                        if let PreparedReq::Prepared { req } = &self.prepared {
+                            out.send_commit(req);
+                        } else {
+                            error!(target: "pbft",
+                                   concat!("entering commit phase ",
+                                           "with no prepared vote"));
+                        }
 
                         // Transition to the commit state and handle
                         // the commit vote there.
@@ -1778,7 +1817,7 @@ where
 
     fn highest_votes(
         &self,
-        votes: PBFTVoteCounts<PbftRequest>
+        votes: &PBFTVoteCounts<PbftRequest>
     ) -> Result<Vec<PBFTLeaderHint<Party>>, PBFTProtoStateUpdateError<H::HashID>>
     {
         let size = votes.commit.len();
@@ -1832,7 +1871,7 @@ where
 
     fn update_leader_hint(
         &mut self,
-        votes: PBFTVoteCounts<PbftRequest>
+        votes: &PBFTVoteCounts<PbftRequest>
     ) -> Result<(), PBFTProtoStateUpdateError<H::HashID>> {
         // If there is no leader, update the hint.
         if let PBFTLeader::None { .. } = &self.leader {
@@ -1872,6 +1911,10 @@ where
         I: Iterator<Item = H::HashID> {
         // Actually submit the hashes.
         self.pending.submit_hashes(hashes);
+
+        if let PBFTLeader::Other { stall_start, .. } = &mut self.leader {
+            *stall_start = Some(Instant::now());
+        }
 
         Ok(())
     }
@@ -1920,7 +1963,7 @@ where
 impl<H, RoundID, PartyID> ProtoState<RoundID, PartyID>
     for PBFTProtoState<H, PartyID>
 where
-    PartyID: Clone + Display + Eq + Hash + Into<usize>,
+    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
     H: Default + HashAlgo,
     H::HashID: Clone + Display + Eq + Hash
 {
@@ -1964,7 +2007,7 @@ where
     fn update<P>(
         &mut self,
         _parties: &mut P,
-        oper: PBFTRoundResult<PbftRequest>
+        oper: &PBFTRoundResult<PbftRequest>
     ) -> Result<(), Self::UpdateError>
     where
         P: Parties<RoundID, PartyID> {
@@ -1972,7 +2015,7 @@ where
             PBFTRoundResult::Complete {
                 req: PbftRequest::View(PbftView { id })
             } => {
-                let id = self.hash.wrap_hashed_bytes(&id).map_err(|err| {
+                let id = self.hash.wrap_hashed_bytes(id).map_err(|err| {
                     PBFTProtoStateUpdateError::BadSize { err: err }
                 })?;
 
@@ -1990,9 +2033,15 @@ where
                                   "party {} became leader of consensus pool",
                                   party);
 
+                            let stall_start = if self.pending.is_empty() {
+                                None
+                            } else {
+                                Some(Instant::now())
+                            };
+
                             self.leader = PBFTLeader::Other {
                                 view_start: Instant::now(),
-                                stall_start: None,
+                                stall_start: stall_start,
                                 nconsecutive_failures: 0,
                                 nfailures: 0,
                                 nrounds: 0,
@@ -2030,19 +2079,16 @@ where
             PBFTRoundResult::Complete {
                 req: PbftRequest::Payload(payload)
             } => {
-                let hashes =
-                    payload_hashes(&self.hash, &payload).map_err(|err| {
-                        match err {
-                            PBFTBatchError::Hash { err } => {
-                                PBFTProtoStateUpdateError::BadSize { err: err }
-                            }
-                            PBFTBatchError::BadSize { size } => {
-                                PBFTProtoStateUpdateError::BadPayload {
-                                    size: size
-                                }
-                            }
+                let hashes = payload_hashes(&self.hash, payload).map_err(
+                    |err| match err {
+                        PBFTBatchError::Hash { err } => {
+                            PBFTProtoStateUpdateError::BadSize { err: err }
                         }
-                    })?;
+                        PBFTBatchError::BadSize { size } => {
+                            PBFTProtoStateUpdateError::BadPayload { size: size }
+                        }
+                    }
+                )?;
 
                 self.pending.clear_hashes(hashes.iter());
 
@@ -2117,9 +2163,11 @@ where
                 nrounds,
                 stall_start,
                 view_start,
-                party
-            } => match parties.party_idx(party) {
+                party: leader
+            } => match parties.party_idx(leader) {
                 Some(id) => {
+                    let id: usize = id.clone().into();
+                    let id = OutboundPartyIdx::from(id + 1);
                     let info = PBFTRoundInfo::Other { party: id.clone() };
                     let now = Instant::now();
                     let view_deadline = self
@@ -2147,15 +2195,27 @@ where
                         debug!(target: "pbft-proto-state",
                                "proposing view change");
 
-                        // XXX select the leader in a better manner.
-                        let req = PbftRequest::view_change(&self.self_hash);
+                        // ISSUE #4: this needs a better mechanism
+                        // for picking a leader.
+                        let parties: Vec<&H::HashID> = self
+                            .party_hashes
+                            .iter()
+                            .filter(|(party, _)| *party != leader)
+                            .map(|(_, hash)| hash)
+                            .collect();
+                        let idx = (random::<usize>() % parties.len()) + 1;
+
+                        let hash = if idx == 0 {
+                            &self.self_hash
+                        } else {
+                            parties[idx - 1]
+                        };
+
+                        let req = PbftRequest::view_change(hash);
 
                         PBFTRoundState::with_req(&mut out, nparties, req)
                     } else {
                         // No view change.
-                        debug!(target: "pbft-proto-state",
-                               "someone else is the leader, generating empty");
-
                         PBFTRoundState::new(
                             nparties,
                             deadline,
@@ -2166,7 +2226,7 @@ where
                     Ok((round, info, out, deadline))
                 }
                 None => Err(PBFTRoundStateCreateError::BadParty {
-                    party: party.clone()
+                    party: leader.clone()
                 })
             },
             PBFTLeader::This => {
@@ -2283,6 +2343,10 @@ where
 
                     if let Some(req) = state.pending.get_batch::<PbftRequest>()
                     {
+                        debug!(target: "pbft",
+                               "updating round with our prepare vote for {}",
+                               req);
+
                         // We generated a request, cast our vote and
                         // send it.
                         match prepare.prepare_votes.entry(req.clone()) {
@@ -2303,6 +2367,11 @@ where
                         prepare.prepare_lead = prepare.prepare_lead.max(1);
                         prepare.prepare_voted.set(0, true);
                         prepare.prepared = PreparedReq::Prepared { req: req };
+
+                        debug!(target: "pbft",
+                               concat!("prepare vote recorded, {} ",
+                                       "remaining, lead has {}"),
+                               prepare.prepare_remaining, prepare.prepare_lead);
                     }
                 }
             }
@@ -2334,6 +2403,10 @@ where
                     let req = PbftRequest::view_change(leader_vote);
                     let nparties = prepare.prepare_voted.len();
 
+                    debug!(target: "pbft",
+                           "updating round with our prepare vote for {}",
+                           req);
+
                     match prepare.prepare_votes.entry(req.clone()) {
                         Entry::Vacant(ent) => {
                             let mut votes = bitvec![0; nparties];
@@ -2352,6 +2425,11 @@ where
                     prepare.prepare_lead = prepare.prepare_lead.max(1);
                     out.send_prepare(&req);
                     prepare.prepared = PreparedReq::Prepared { req: req };
+
+                    debug!(target: "pbft",
+                           concat!("prepare vote recorded, {} ",
+                                   "remaining, lead has {}"),
+                           prepare.prepare_remaining, prepare.prepare_lead);
 
                     None
                 } else {

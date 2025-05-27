@@ -195,12 +195,12 @@ impl PBFTProtoStateConfig {
 
     #[inline]
     pub fn default_view_change_time() -> Option<Duration> {
-        Some(Duration::from_secs(10))
+        Some(Duration::from_secs(30))
     }
 
     #[inline]
     pub fn default_view_change_stall_time() -> Option<Duration> {
-        Some(Duration::from_secs(8))
+        Some(Duration::from_secs(10))
     }
 }
 
