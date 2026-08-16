@@ -17,8 +17,8 @@
 // <https://www.gnu.org/licenses/>.
 
 //! Outbound message buffer for the Castro-Liskov PBFT protocol.
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::convert::Infallible;
 use std::fmt::Display;
 use std::fmt::Error;

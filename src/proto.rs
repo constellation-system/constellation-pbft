@@ -25,11 +25,11 @@ use std::marker::PhantomData;
 use constellation_common::config::Create;
 use constellation_common::hashid::HashAlgo;
 use constellation_consensus_common::config::SingleRoundConfig;
-use constellation_consensus_common::parties::StaticParties;
 use constellation_consensus_common::parties::PartyTypes;
 use constellation_consensus_common::parties::RoundIDGenTypes;
 use constellation_consensus_common::parties::RoundPartyIDTypes;
 use constellation_consensus_common::parties::RoundPartyIdxTypes;
+use constellation_consensus_common::parties::StaticParties;
 use constellation_consensus_common::proto::ConsensusProto;
 use constellation_consensus_common::round::SingleRound;
 use constellation_consensus_common::round::SingleRoundCreateError;
@@ -49,14 +49,15 @@ where
     H::HashID: Clone + Display + Eq + Hash {
     hash: PhantomData<H>,
     types: PhantomData<Types>,
-    outbound_config: SingleRoundConfig<PBFTProtoStateConfig>,
+    outbound_config: SingleRoundConfig<PBFTProtoStateConfig>
 }
 
 impl<H, Types> Create for PBFTProto<H, Types>
 where
     Types: RoundIDGenTypes + RoundPartyIDTypes + PartyTypes,
     H: HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash {
+    H::HashID: Clone + Display + Eq + Hash
+{
     type Config = PBFTConfig;
     type CreateError = Infallible;
 
@@ -66,7 +67,7 @@ where
         Ok(PBFTProto {
             types: PhantomData,
             hash: PhantomData,
-            outbound_config: outbound_config,
+            outbound_config: outbound_config
         })
     }
 }
@@ -74,19 +75,21 @@ where
 impl<H, Types> ConsensusProto<StaticParties<Types::PartyID>, Types>
     for PBFTProto<H, Types>
 where
-    Types: RoundIDGenTypes + PartyTypes
+    Types: RoundIDGenTypes
+        + PartyTypes
         + RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
     Types::RoundID: From<u128> + Into<u128>,
     H: Default + HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash {
+    H::HashID: Clone + Display + Eq + Hash
+{
     type ProtoTypes = PBFTProtoTypes;
-    type Rounds = SingleRound<
-        PBFTProtoState<H, Types::PartyID>,
-        Types,
-        PBFTProtoTypes
-    >;
+    type Rounds =
+        SingleRound<PBFTProtoState<H, Types::PartyID>, Types, PBFTProtoTypes>;
     type RoundsError<PartiesErr>
-        = SingleRoundCreateError<Infallible, PBFTRoundStateCreateError<Types::PartyID>>
+        = SingleRoundCreateError<
+        Infallible,
+        PBFTRoundStateCreateError<Types::PartyID>
+    >
     where
         PartiesErr: Display;
     type State = PBFTProtoState<H, Types::PartyID>;

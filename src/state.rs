@@ -20,8 +20,8 @@
 //! consensus protocol.
 
 use std::array::TryFromSliceError;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::convert::Infallible;
 use std::fmt::Display;
 use std::fmt::Error;
@@ -32,18 +32,18 @@ use std::mem::replace;
 use std::time::Duration;
 use std::time::Instant;
 
-use bitvec::prelude::bitvec;
 use bitvec::prelude::BitVec;
+use bitvec::prelude::bitvec;
 use constellation_common::hashid::HashAlgo;
 use constellation_common::hashid::HashID;
 use constellation_consensus_common::oper::OperBatch;
 use constellation_consensus_common::oper::OperBatches;
 use constellation_consensus_common::outbound::Outbound;
-use constellation_consensus_common::parties::RoundPartyIdxTypes;
-use constellation_consensus_common::parties::RoundPartyIDTypes;
-use constellation_consensus_common::parties::PartyTypes;
 use constellation_consensus_common::parties::Parties;
 use constellation_consensus_common::parties::PartyRoundIDMap;
+use constellation_consensus_common::parties::PartyTypes;
+use constellation_consensus_common::parties::RoundPartyIDTypes;
+use constellation_consensus_common::parties::RoundPartyIdxTypes;
 use constellation_consensus_common::proto::ConsensusProtoMsgTypes;
 use constellation_consensus_common::proto::ConsensusProtoOutboundTypes;
 use constellation_consensus_common::state::ProtoState;
@@ -393,19 +393,22 @@ where
 }
 
 impl<RoundID> ConsensusProtoMsgTypes<RoundID> for PBFTProtoTypes
-where RoundID: Clone + Display + Ord + From<u128> + Into<u128> {
-    type Payload = PbftContent;
+where
+    RoundID: Clone + Display + Ord + From<u128> + Into<u128>
+{
     type Msg = PbftMsg;
+    type Payload = PbftContent;
 }
 
 impl<Types> ConsensusProtoOutboundTypes<Types> for PBFTProtoTypes
-where Types: RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
-      Types::RoundID: From<u128> + Into<u128> {
+where
+    Types: RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
+    Types::RoundID: From<u128> + Into<u128>
+{
     type CollectOutboundError = Infallible;
-    type RecvError = Infallible;
     type Out = PBFTOutbound<Types::RoundID>;
+    type RecvError = Infallible;
 }
-
 
 impl<H, Req> CommitState<H, Req>
 where
@@ -1366,7 +1369,8 @@ where
                 }
             } else {
                 if let PreparedReq::Prepared { req } = &self.prepared &&
-                    prepared_was_empty {
+                    prepared_was_empty
+                {
                     out.send_prepare(req);
                 }
 
@@ -1849,7 +1853,9 @@ where
         for (req, nvotes) in votes.commit.iter() {
             // If it's a view change request, update the
             // best votes.
-            if *nvotes >= max && let PbftRequest::View(PbftView { id }) = req {
+            if *nvotes >= max &&
+                let PbftRequest::View(PbftView { id }) = req
+            {
                 let party = self.hash_to_party(id)?;
 
                 if *nvotes == max {
@@ -1867,7 +1873,8 @@ where
                 // If it's a view change request, update the
                 // best votes.
                 if *nvotes >= max &&
-                    let PbftRequest::View(PbftView { id }) = req {
+                    let PbftRequest::View(PbftView { id }) = req
+                {
                     let party = self.hash_to_party(id)?;
 
                     if *nvotes == max {
@@ -1934,12 +1941,12 @@ where
     }
 }
 
-impl<H, Types> ProtoStateSetParties<Types>
-    for PBFTProtoState<H, Types::PartyID>
+impl<H, Types> ProtoStateSetParties<Types> for PBFTProtoState<H, Types::PartyID>
 where
     H: Default + HashAlgo,
     H::HashID: Clone + Display + Eq + Hash,
-    Types: PartyTypes + RoundPartyIDTypes {
+    Types: PartyTypes + RoundPartyIDTypes
+{
     type SetPartiesError = Types::EncodeError;
 
     fn set_parties(
@@ -1975,7 +1982,8 @@ impl<H, Types> ProtoState<Types> for PBFTProtoState<H, Types::PartyID>
 where
     H: Default + HashAlgo,
     H::HashID: Clone + Display + Eq + Hash,
-    Types: PartyTypes + RoundPartyIDTypes {
+    Types: PartyTypes + RoundPartyIDTypes
+{
     type Config = PBFTProtoStateConfig;
     type CreateError = Infallible;
     type Oper = PBFTRoundResult<PbftRequest>;
@@ -2140,7 +2148,8 @@ where
     H: Default + HashAlgo,
     H::HashID: Clone + Display + Eq + Hash,
     Types: PartyTypes + RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
-    Types::RoundID: From<u128> + Into<u128> {
+    Types::RoundID: From<u128> + Into<u128>
+{
     type CreateRoundError = PBFTRoundStateCreateError<Types::PartyID>;
     type Info = PBFTRoundInfo<OutboundPartyIdx>;
     type Round = PBFTRoundState<H::HashID, PbftRequest>;
@@ -2463,13 +2472,17 @@ where
 }
 
 impl<H, Types>
-    RoundStateRecv<Types, PBFTProtoTypes, PBFTRoundResult<PbftRequest>,
-                   PBFTRoundInfo<OutboundPartyIdx>>
-    for PBFTRoundState<H, PbftRequest>
+    RoundStateRecv<
+        Types,
+        PBFTProtoTypes,
+        PBFTRoundResult<PbftRequest>,
+        PBFTRoundInfo<OutboundPartyIdx>
+    > for PBFTRoundState<H, PbftRequest>
 where
     H: HashID,
     Types: PartyTypes + RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
-    Types::RoundID: From<u128> + Into<u128> {
+    Types::RoundID: From<u128> + Into<u128>
+{
     fn recv(
         self,
         out: &mut PBFTOutbound<Types::RoundID>,
@@ -3104,7 +3117,9 @@ fn test_withreq_handle_prepare_selflead() {
 fn test_withreq_handle_prepare_nonlead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3135,7 +3150,9 @@ fn test_withreq_handle_prepare_nonlead() {
 fn test_withreq_handle_prepare_lead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3166,7 +3183,9 @@ fn test_withreq_handle_prepare_lead() {
 fn test_empty_handle_prepare_nonlead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -3197,7 +3216,9 @@ fn test_empty_handle_prepare_nonlead() {
 fn test_empty_handle_prepare_lead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -3302,7 +3323,9 @@ fn test_withreq_handle_prepare_selflead_idempotent() {
 fn test_withreq_handle_prepare_nonlead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3339,7 +3362,9 @@ fn test_withreq_handle_prepare_nonlead_idempotent() {
 fn test_withreq_handle_prepare_lead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3376,7 +3401,9 @@ fn test_withreq_handle_prepare_lead_idempotent() {
 fn test_empty_handle_prepare_nonlead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -3413,7 +3440,9 @@ fn test_empty_handle_prepare_nonlead_idempotent() {
 fn test_empty_handle_prepare_lead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -3527,7 +3556,9 @@ fn test_withreq_handle_prepare_nonlead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3565,7 +3596,9 @@ fn test_withreq_handle_prepare_lead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3603,7 +3636,9 @@ fn test_empty_handle_prepare_nonlead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -3641,7 +3676,9 @@ fn test_empty_handle_prepare_lead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -3752,7 +3789,9 @@ fn test_withreq_handle_prepare_selflead_consistent_commit() {
 fn test_withreq_handle_prepare_nonlead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3789,7 +3828,9 @@ fn test_withreq_handle_prepare_nonlead_consistent_commit() {
 fn test_withreq_handle_prepare_lead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -3826,7 +3867,9 @@ fn test_withreq_handle_prepare_lead_consistent_commit() {
 fn test_empty_handle_prepare_nonlead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -3863,7 +3906,9 @@ fn test_empty_handle_prepare_nonlead_consistent_commit() {
 fn test_empty_handle_prepare_lead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -3979,7 +4024,9 @@ fn test_withreq_handle_prepare_nonlead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4017,7 +4064,9 @@ fn test_withreq_handle_prepare_lead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4055,7 +4104,9 @@ fn test_empty_handle_prepare_nonlead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -4093,7 +4144,9 @@ fn test_empty_handle_prepare_lead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -4207,7 +4260,9 @@ fn test_withreq_handle_prepare_nonlead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4245,7 +4300,9 @@ fn test_withreq_handle_prepare_lead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4283,7 +4340,9 @@ fn test_empty_handle_prepare_nonlead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -4321,7 +4380,9 @@ fn test_empty_handle_prepare_lead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -4426,7 +4487,9 @@ fn test_withreq_handle_prepare_selflead_fail() {
 fn test_withreq_handle_prepare_nonlead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4460,7 +4523,9 @@ fn test_withreq_handle_prepare_nonlead_fail() {
 fn test_withreq_handle_prepare_lead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4494,7 +4559,9 @@ fn test_withreq_handle_prepare_lead_fail() {
 fn test_empty_handle_prepare_nonlead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -4528,7 +4595,9 @@ fn test_empty_handle_prepare_nonlead_fail() {
 fn test_empty_handle_prepare_lead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -4624,7 +4693,9 @@ fn test_withreq_handle_commit_selflead() {
 fn test_withreq_handle_commit_nonlead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4655,7 +4726,9 @@ fn test_withreq_handle_commit_nonlead() {
 fn test_withreq_handle_commit_lead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4686,7 +4759,9 @@ fn test_withreq_handle_commit_lead() {
 fn test_empty_handle_commit_nonlead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -4717,7 +4792,9 @@ fn test_empty_handle_commit_nonlead() {
 fn test_empty_handle_commit_lead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -4822,7 +4899,9 @@ fn test_withreq_handle_commit_selflead_idempotent() {
 fn test_withreq_handle_commit_nonlead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4859,7 +4938,9 @@ fn test_withreq_handle_commit_nonlead_idempotent() {
 fn test_withreq_handle_commit_lead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -4896,7 +4977,9 @@ fn test_withreq_handle_commit_lead_idempotent() {
 fn test_empty_handle_commit_nonlead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -4933,7 +5016,9 @@ fn test_empty_handle_commit_nonlead_idempotent() {
 fn test_empty_handle_commit_lead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -5044,7 +5129,9 @@ fn test_withreq_handle_commit_selflead_consistent_prepare() {
 fn test_withreq_handle_commit_nonlead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5081,7 +5168,9 @@ fn test_withreq_handle_commit_nonlead_consistent_prepare() {
 fn test_withreq_handle_commit_lead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5118,7 +5207,9 @@ fn test_withreq_handle_commit_lead_consistent_prepare() {
 fn test_empty_handle_commit_nonlead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -5155,7 +5246,9 @@ fn test_empty_handle_commit_nonlead_consistent_prepare() {
 fn test_empty_handle_commit_lead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -5269,7 +5362,9 @@ fn test_withreq_handle_commit_nonlead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5307,7 +5402,9 @@ fn test_withreq_handle_commit_lead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5345,7 +5442,9 @@ fn test_empty_handle_commit_nonlead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -5383,7 +5482,9 @@ fn test_empty_handle_commit_lead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -5497,7 +5598,9 @@ fn test_withreq_handle_commit_nonlead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5535,7 +5638,9 @@ fn test_withreq_handle_commit_lead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5573,7 +5678,9 @@ fn test_empty_handle_commit_nonlead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -5611,7 +5718,9 @@ fn test_empty_handle_commit_lead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -5725,7 +5834,9 @@ fn test_withreq_handle_commit_nonlead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5763,7 +5874,9 @@ fn test_withreq_handle_commit_lead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5801,7 +5914,9 @@ fn test_empty_handle_commit_nonlead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -5839,7 +5954,9 @@ fn test_empty_handle_commit_lead_superceding_complete() {
     let party = 1;
     let proposal = 2;
     let superceding = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -5944,7 +6061,9 @@ fn test_withreq_handle_commit_selflead_fail() {
 fn test_withreq_handle_commit_nonlead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -5978,7 +6097,9 @@ fn test_withreq_handle_commit_nonlead_fail() {
 fn test_withreq_handle_commit_lead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6012,7 +6133,9 @@ fn test_withreq_handle_commit_lead_fail() {
 fn test_empty_handle_commit_nonlead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -6046,7 +6169,9 @@ fn test_empty_handle_commit_nonlead_fail() {
 fn test_empty_handle_commit_lead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -6142,7 +6267,9 @@ fn test_withreq_handle_complete_selflead() {
 fn test_withreq_handle_complete_nonlead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6173,7 +6300,9 @@ fn test_withreq_handle_complete_nonlead() {
 fn test_withreq_handle_complete_lead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6204,7 +6333,9 @@ fn test_withreq_handle_complete_lead() {
 fn test_empty_handle_complete_nonlead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -6235,7 +6366,9 @@ fn test_empty_handle_complete_nonlead() {
 fn test_empty_handle_complete_lead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -6340,7 +6473,9 @@ fn test_withreq_handle_complete_selflead_idempotent() {
 fn test_withreq_handle_complete_nonlead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6377,7 +6512,9 @@ fn test_withreq_handle_complete_nonlead_idempotent() {
 fn test_withreq_handle_complete_lead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6414,7 +6551,9 @@ fn test_withreq_handle_complete_lead_idempotent() {
 fn test_empty_handle_complete_nonlead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -6451,7 +6590,9 @@ fn test_empty_handle_complete_nonlead_idempotent() {
 fn test_empty_handle_complete_lead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -6562,7 +6703,9 @@ fn test_withreq_handle_complete_selflead_consistent_prepare() {
 fn test_withreq_handle_complete_nonlead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6599,7 +6742,9 @@ fn test_withreq_handle_complete_nonlead_consistent_prepare() {
 fn test_withreq_handle_complete_lead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6636,7 +6781,9 @@ fn test_withreq_handle_complete_lead_consistent_prepare() {
 fn test_empty_handle_complete_nonlead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -6673,7 +6820,9 @@ fn test_empty_handle_complete_nonlead_consistent_prepare() {
 fn test_empty_handle_complete_lead_consistent_prepare() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -6787,7 +6936,9 @@ fn test_withreq_handle_complete_nonlead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6825,7 +6976,9 @@ fn test_withreq_handle_complete_lead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -6863,7 +7016,9 @@ fn test_empty_handle_complete_nonlead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -6901,7 +7056,9 @@ fn test_empty_handle_complete_lead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -7012,7 +7169,9 @@ fn test_withreq_handle_complete_selflead_consistent_commit() {
 fn test_withreq_handle_complete_nonlead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7049,7 +7208,9 @@ fn test_withreq_handle_complete_nonlead_consistent_commit() {
 fn test_withreq_handle_complete_lead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7086,7 +7247,9 @@ fn test_withreq_handle_complete_lead_consistent_commit() {
 fn test_empty_handle_complete_nonlead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -7123,7 +7286,9 @@ fn test_empty_handle_complete_nonlead_consistent_commit() {
 fn test_empty_handle_complete_lead_consistent_commit() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -7237,7 +7402,9 @@ fn test_withreq_handle_complete_nonlead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7275,7 +7442,9 @@ fn test_withreq_handle_complete_lead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7313,7 +7482,9 @@ fn test_empty_handle_complete_nonlead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -7351,7 +7522,9 @@ fn test_empty_handle_complete_lead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -7465,7 +7638,9 @@ fn test_withreq_handle_complete_nonlead_inconsistent_complete() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7503,7 +7678,9 @@ fn test_withreq_handle_complete_lead_inconsistent_complete() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7541,7 +7718,9 @@ fn test_empty_handle_complete_nonlead_inconsistent_complete() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -7579,7 +7758,9 @@ fn test_empty_handle_complete_lead_inconsistent_complete() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -7684,7 +7865,9 @@ fn test_withreq_handle_complete_selflead_fail() {
 fn test_withreq_handle_complete_nonlead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7718,7 +7901,9 @@ fn test_withreq_handle_complete_nonlead_fail() {
 fn test_withreq_handle_complete_lead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7752,7 +7937,9 @@ fn test_withreq_handle_complete_lead_fail() {
 fn test_empty_handle_complete_nonlead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -7786,7 +7973,9 @@ fn test_empty_handle_complete_nonlead_fail() {
 fn test_empty_handle_complete_lead_fail() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -7876,7 +8065,9 @@ fn test_withreq_handle_fail_selflead() {
 fn test_withreq_handle_fail_nonlead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7904,7 +8095,9 @@ fn test_withreq_handle_fail_nonlead() {
 fn test_withreq_handle_fail_lead() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -7931,7 +8124,9 @@ fn test_withreq_handle_fail_lead() {
 #[test]
 fn test_empty_handle_fail_nonlead() {
     let party = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -7958,7 +8153,9 @@ fn test_empty_handle_fail_nonlead() {
 #[test]
 fn test_empty_handle_fail_lead() {
     let party = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -8048,7 +8245,9 @@ fn test_withreq_handle_fail_selflead_idempotent() {
 fn test_withreq_handle_fail_nonlead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8079,7 +8278,9 @@ fn test_withreq_handle_fail_nonlead_idempotent() {
 fn test_withreq_handle_fail_lead_idempotent() {
     let party = 1;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8109,7 +8310,9 @@ fn test_withreq_handle_fail_lead_idempotent() {
 #[test]
 fn test_empty_handle_fail_nonlead_idempotent() {
     let party = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -8139,7 +8342,9 @@ fn test_empty_handle_fail_nonlead_idempotent() {
 #[test]
 fn test_empty_handle_fail_lead_idempotent() {
     let party = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -8241,7 +8446,9 @@ fn test_withreq_handle_fail_nonlead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8276,7 +8483,9 @@ fn test_withreq_handle_fail_lead_inconsistent_prepare() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8310,7 +8519,9 @@ fn test_withreq_handle_fail_lead_inconsistent_prepare() {
 fn test_empty_handle_fail_nonlead_inconsistent_prepare() {
     let party = 1;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -8344,7 +8555,9 @@ fn test_empty_handle_fail_nonlead_inconsistent_prepare() {
 fn test_empty_handle_fail_lead_inconsistent_prepare() {
     let party = 1;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -8449,7 +8662,9 @@ fn test_withreq_handle_fail_nonlead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8484,7 +8699,9 @@ fn test_withreq_handle_fail_lead_inconsistent_commit() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8518,7 +8735,9 @@ fn test_withreq_handle_fail_lead_inconsistent_commit() {
 fn test_empty_handle_fail_nonlead_inconsistent_commit() {
     let party = 1;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -8552,7 +8771,9 @@ fn test_empty_handle_fail_nonlead_inconsistent_commit() {
 fn test_empty_handle_fail_lead_inconsistent_commit() {
     let party = 1;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -8657,7 +8878,9 @@ fn test_withreq_handle_fail_nonlead_inconsistent_complete() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8692,7 +8915,9 @@ fn test_withreq_handle_fail_lead_inconsistent_complete() {
     let party = 1;
     let proposal = 2;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8726,7 +8951,9 @@ fn test_withreq_handle_fail_lead_inconsistent_complete() {
 fn test_empty_handle_fail_nonlead_inconsistent_complete() {
     let party = 1;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(2) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(2)
+    };
 
     consensus_test(
         None,
@@ -8760,7 +8987,9 @@ fn test_empty_handle_fail_nonlead_inconsistent_complete() {
 fn test_empty_handle_fail_lead_inconsistent_complete() {
     let party = 1;
     let inconsistent = 3;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -8911,7 +9140,9 @@ fn test_withreq_finish_prepare_basic_selflead() {
 #[test]
 fn test_withreq_finish_prepare_basic_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -8970,7 +9201,9 @@ fn test_withreq_finish_prepare_basic_nonlead() {
 #[test]
 fn test_withreq_finish_prepare_basic_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -9029,7 +9262,9 @@ fn test_withreq_finish_prepare_basic_lead() {
 #[test]
 fn test_empty_finish_prepare_basic_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -9089,7 +9324,9 @@ fn test_empty_finish_prepare_basic_nonlead() {
 #[test]
 fn test_empty_finish_prepare_basic_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -9279,7 +9516,9 @@ fn test_withreq_finish_prepare_override_initial_selflead() {
 fn test_withreq_finish_prepare_override_initial_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(overridden),
@@ -9344,7 +9583,9 @@ fn test_withreq_finish_prepare_override_initial_nonlead() {
 fn test_withreq_finish_prepare_override_initial_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(overridden),
@@ -9539,7 +9780,9 @@ fn test_withreq_finish_prepare_override_prepare_selflead() {
 fn test_withreq_finish_prepare_override_prepare_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -9604,7 +9847,9 @@ fn test_withreq_finish_prepare_override_prepare_nonlead() {
 fn test_withreq_finish_prepare_override_prepare_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -9669,7 +9914,9 @@ fn test_withreq_finish_prepare_override_prepare_lead() {
 fn test_empty_finish_prepare_override_prepare_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -9735,7 +9982,9 @@ fn test_empty_finish_prepare_override_prepare_nonlead() {
 fn test_empty_finish_prepare_override_prepare_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -9805,7 +10054,9 @@ fn test_empty_finish_prepare_override_prepare_lead() {
 fn test_empty_finish_prepare_override_prepare_lead_wins() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -9875,7 +10126,9 @@ fn test_empty_finish_prepare_override_prepare_lead_wins() {
 fn test_empty_finish_prepare_override_prepare_lead_self_wins() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(7) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(7)
+    };
 
     consensus_test(
         None,
@@ -10070,7 +10323,9 @@ fn test_withreq_finish_prepare_override_commit_selflead() {
 fn test_withreq_finish_prepare_override_commit_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -10135,7 +10390,9 @@ fn test_withreq_finish_prepare_override_commit_nonlead() {
 fn test_withreq_finish_prepare_override_commit_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -10200,7 +10457,9 @@ fn test_withreq_finish_prepare_override_commit_lead() {
 fn test_empty_finish_prepare_override_commit_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -10266,7 +10525,9 @@ fn test_empty_finish_prepare_override_commit_nonlead() {
 fn test_empty_finish_prepare_override_commit_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -10336,7 +10597,9 @@ fn test_empty_finish_prepare_override_commit_lead() {
 fn test_empty_finish_prepare_override_commit_lead_wins() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -10406,7 +10669,9 @@ fn test_empty_finish_prepare_override_commit_lead_wins() {
 fn test_empty_finish_prepare_override_commit_lead_self_wins() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(7) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(7)
+    };
 
     consensus_test(
         None,
@@ -10601,7 +10866,9 @@ fn test_withreq_finish_prepare_override_complete_selflead() {
 fn test_withreq_finish_prepare_override_complete_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -10666,7 +10933,9 @@ fn test_withreq_finish_prepare_override_complete_nonlead() {
 fn test_withreq_finish_prepare_override_complete_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -10731,7 +11000,9 @@ fn test_withreq_finish_prepare_override_complete_lead() {
 fn test_empty_finish_prepare_override_complete_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -10797,7 +11068,9 @@ fn test_empty_finish_prepare_override_complete_nonlead() {
 fn test_empty_finish_prepare_override_complete_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -10867,7 +11140,9 @@ fn test_empty_finish_prepare_override_complete_lead() {
 fn test_empty_finish_prepare_override_complete_lead_wins() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -10937,7 +11212,9 @@ fn test_empty_finish_prepare_override_complete_lead_wins() {
 fn test_empty_finish_prepare_override_complete_lead_self_wins() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(7) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(7)
+    };
 
     consensus_test(
         None,
@@ -11121,7 +11398,9 @@ fn test_withreq_finish_prepare_override_fail_selflead() {
 #[test]
 fn test_withreq_finish_prepare_override_fail_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -11181,7 +11460,9 @@ fn test_withreq_finish_prepare_override_fail_nonlead() {
 #[test]
 fn test_withreq_finish_prepare_override_fail_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -11241,7 +11522,9 @@ fn test_withreq_finish_prepare_override_fail_lead() {
 #[test]
 fn test_empty_finish_prepare_override_fail_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -11302,7 +11585,9 @@ fn test_empty_finish_prepare_override_fail_nonlead() {
 #[test]
 fn test_empty_finish_prepare_override_fail_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -11363,7 +11648,9 @@ fn test_empty_finish_prepare_override_fail_lead() {
 #[test]
 fn test_empty_finish_prepare_override_fail_lead_wins() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -11428,7 +11715,9 @@ fn test_empty_finish_prepare_override_fail_lead_wins() {
 #[test]
 fn test_empty_finish_prepare_override_fail_lead_self_wins() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(7) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(7)
+    };
 
     consensus_test(
         None,
@@ -11565,7 +11854,9 @@ fn test_withreq_deadlock_prepare_selflead() {
 fn test_withreq_deadlock_prepare_nonlead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(a),
@@ -11603,7 +11894,9 @@ fn test_withreq_deadlock_prepare_nonlead() {
 fn test_withreq_deadlock_prepare_lead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(a),
@@ -11641,7 +11934,9 @@ fn test_withreq_deadlock_prepare_lead() {
 fn test_empty_deadlock_prepare_nonlead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -11680,7 +11975,9 @@ fn test_empty_deadlock_prepare_nonlead() {
 fn test_empty_deadlock_prepare_lead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(7) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(7)
+    };
 
     consensus_test(
         None,
@@ -11767,7 +12064,9 @@ fn test_withreq_all_fail_prepare_selflead() {
 #[test]
 fn test_withreq_all_fail_prepare_nonlead() {
     let proposal = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -11792,7 +12091,9 @@ fn test_withreq_all_fail_prepare_nonlead() {
 #[test]
 fn test_withreq_all_fail_prepare_lead() {
     let proposal = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -11816,7 +12117,9 @@ fn test_withreq_all_fail_prepare_lead() {
 
 #[test]
 fn test_empty_all_fail_prepare_nonlead() {
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -11841,7 +12144,9 @@ fn test_empty_all_fail_prepare_nonlead() {
 #[test]
 fn test_empty_all_fail_prepare_lead() {
     let proposal = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -11970,7 +12275,9 @@ fn test_withreq_fail_prepare_selflead() {
 #[test]
 fn test_withreq_fail_prepare_lead() {
     let proposal = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -12022,7 +12329,9 @@ fn test_withreq_fail_prepare_lead() {
 #[test]
 fn test_empty_fail_prepare_nonlead() {
     let proposal = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -12074,7 +12383,9 @@ fn test_empty_fail_prepare_nonlead() {
 #[test]
 fn test_empty_fail_prepare_lead() {
     let proposal = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -12179,7 +12490,9 @@ fn test_withreq_doomed_prepare_selflead() {
 fn test_withreq_doomed_prepare_nonlead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(a),
@@ -12205,7 +12518,9 @@ fn test_withreq_doomed_prepare_nonlead() {
 fn test_withreq_doomed_prepare_lead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(a),
@@ -12231,7 +12546,9 @@ fn test_withreq_doomed_prepare_lead() {
 fn test_empty_doomed_prepare_nonlead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -12258,7 +12575,9 @@ fn test_empty_doomed_prepare_nonlead() {
 fn test_empty_doomed_prepare_lead() {
     let a = 1;
     let b = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         None,
@@ -12410,7 +12729,9 @@ fn test_commit_handle_commit_selflead() {
 #[test]
 fn test_commit_handle_commit_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -12473,7 +12794,9 @@ fn test_commit_handle_commit_nonlead() {
 #[test]
 fn test_commit_handle_commit_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -12536,7 +12859,9 @@ fn test_commit_handle_commit_lead() {
 #[test]
 fn test_commit_handle_commit_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -12600,7 +12925,9 @@ fn test_commit_handle_commit_noprepared_nolead() {
 #[test]
 fn test_commit_handle_commit_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -12801,7 +13128,9 @@ fn test_commit_handle_commit_idempotent_selflead() {
 #[test]
 fn test_commit_handle_commit_idempotent_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -12868,7 +13197,9 @@ fn test_commit_handle_commit_idempotent_nonlead() {
 #[test]
 fn test_commit_handle_commit_idempotent_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -12935,7 +13266,9 @@ fn test_commit_handle_commit_idempotent_lead() {
 #[test]
 fn test_commit_handle_commit_idempotent_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -13003,7 +13336,9 @@ fn test_commit_handle_commit_idempotent_noprepared_nolead() {
 #[test]
 fn test_commit_handle_commit_idempotent_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -13211,7 +13546,9 @@ fn test_commit_handle_commit_inconsistent_commit_selflead() {
 fn test_commit_handle_commit_inconsistent_commit_nonlead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -13279,7 +13616,9 @@ fn test_commit_handle_commit_inconsistent_commit_nonlead() {
 fn test_commit_handle_commit_inconsistent_commit_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -13347,7 +13686,9 @@ fn test_commit_handle_commit_inconsistent_commit_lead() {
 fn test_commit_handle_commit_inconsistent_commit_noprepared_nolead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -13416,7 +13757,9 @@ fn test_commit_handle_commit_inconsistent_commit_noprepared_nolead() {
 fn test_commit_handle_commit_inconsistent_commit_noprepared_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -13621,7 +13964,9 @@ fn test_commit_handle_commit_consistent_complete_selflead() {
 #[test]
 fn test_commit_handle_commit_consistent_complete_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -13688,7 +14033,9 @@ fn test_commit_handle_commit_consistent_complete_nonlead() {
 #[test]
 fn test_commit_handle_commit_consistent_complete_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -13755,7 +14102,9 @@ fn test_commit_handle_commit_consistent_complete_lead() {
 #[test]
 fn test_commit_handle_commit_consistent_complete_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -13823,7 +14172,9 @@ fn test_commit_handle_commit_consistent_complete_noprepared_nolead() {
 #[test]
 fn test_commit_handle_commit_consistent_complete_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -14031,7 +14382,9 @@ fn test_commit_handle_commit_inconsistent_complete_selflead() {
 fn test_commit_handle_commit_inconsistent_complete_nonlead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -14099,7 +14452,9 @@ fn test_commit_handle_commit_inconsistent_complete_nonlead() {
 fn test_commit_handle_commit_inconsistent_complete_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -14167,7 +14522,9 @@ fn test_commit_handle_commit_inconsistent_complete_lead() {
 fn test_commit_handle_commit_inconsistent_complete_noprepared_nolead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -14236,7 +14593,9 @@ fn test_commit_handle_commit_inconsistent_complete_noprepared_nolead() {
 fn test_commit_handle_commit_inconsistent_complete_noprepared_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -14435,7 +14794,9 @@ fn test_commit_handle_commit_inconsistent_fail_selflead() {
 #[test]
 fn test_commit_handle_commit_inconsistent_fail_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -14499,7 +14860,9 @@ fn test_commit_handle_commit_inconsistent_fail_nonlead() {
 #[test]
 fn test_commit_handle_commit_inconsistent_fail_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -14563,7 +14926,9 @@ fn test_commit_handle_commit_inconsistent_fail_lead() {
 #[test]
 fn test_commit_handle_commit_inconsistent_fail_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -14628,7 +14993,9 @@ fn test_commit_handle_commit_inconsistent_fail_noprepared_nolead() {
 #[test]
 fn test_commit_handle_commit_inconsistent_fail_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -14822,7 +15189,9 @@ fn test_commit_handle_complete_selflead() {
 #[test]
 fn test_commit_handle_complete_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -14885,7 +15254,9 @@ fn test_commit_handle_complete_nonlead() {
 #[test]
 fn test_commit_handle_complete_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -14948,7 +15319,9 @@ fn test_commit_handle_complete_lead() {
 #[test]
 fn test_commit_handle_complete_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -15012,7 +15385,9 @@ fn test_commit_handle_complete_noprepared_nolead() {
 #[test]
 fn test_commit_handle_complete_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -15213,7 +15588,9 @@ fn test_commit_handle_complete_idempotent_selflead() {
 #[test]
 fn test_commit_handle_complete_idempotent_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -15280,7 +15657,9 @@ fn test_commit_handle_complete_idempotent_nonlead() {
 #[test]
 fn test_commit_handle_complete_idempotent_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -15347,7 +15726,9 @@ fn test_commit_handle_complete_idempotent_lead() {
 #[test]
 fn test_commit_handle_complete_idempotent_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -15415,7 +15796,9 @@ fn test_commit_handle_complete_idempotent_noprepared_nolead() {
 #[test]
 fn test_commit_handle_complete_idempotent_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -15623,7 +16006,9 @@ fn test_commit_handle_complete_inconsistent_commit_selflead() {
 fn test_commit_handle_complete_inconsistent_commit_nonlead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -15691,7 +16076,9 @@ fn test_commit_handle_complete_inconsistent_commit_nonlead() {
 fn test_commit_handle_complete_inconsistent_commit_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -15759,7 +16146,9 @@ fn test_commit_handle_complete_inconsistent_commit_lead() {
 fn test_commit_handle_complete_inconsistent_commit_noprepared_nolead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -15828,7 +16217,9 @@ fn test_commit_handle_complete_inconsistent_commit_noprepared_nolead() {
 fn test_commit_handle_complete_inconsistent_commit_noprepared_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -16027,7 +16418,9 @@ fn test_commit_handle_complete_inconsistent_fail_selflead() {
 #[test]
 fn test_commit_handle_complete_inconsistent_fail_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -16091,7 +16484,9 @@ fn test_commit_handle_complete_inconsistent_fail_nonlead() {
 #[test]
 fn test_commit_handle_complete_inconsistent_fail_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -16155,7 +16550,9 @@ fn test_commit_handle_complete_inconsistent_fail_lead() {
 #[test]
 fn test_commit_handle_complete_inconsistent_fail_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -16220,7 +16617,9 @@ fn test_commit_handle_complete_inconsistent_fail_noprepared_nolead() {
 #[test]
 fn test_commit_handle_complete_inconsistent_fail_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -16408,7 +16807,9 @@ fn test_commit_handle_fail_selflead() {
 #[test]
 fn test_commit_handle_fail_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -16468,7 +16869,9 @@ fn test_commit_handle_fail_nonlead() {
 #[test]
 fn test_commit_handle_fail_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -16528,7 +16931,9 @@ fn test_commit_handle_fail_lead() {
 #[test]
 fn test_commit_handle_fail_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -16589,7 +16994,9 @@ fn test_commit_handle_fail_noprepared_nolead() {
 #[test]
 fn test_commit_handle_fail_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -16772,7 +17179,9 @@ fn test_commit_handle_fail_idempotent_selflead() {
 #[test]
 fn test_commit_handle_fail_idempotent_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -16833,7 +17242,9 @@ fn test_commit_handle_fail_idempotent_nonlead() {
 #[test]
 fn test_commit_handle_fail_idempotent_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -16894,7 +17305,9 @@ fn test_commit_handle_fail_idempotent_lead() {
 #[test]
 fn test_commit_handle_fail_idempotent_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -16956,7 +17369,9 @@ fn test_commit_handle_fail_idempotent_noprepared_nolead() {
 #[test]
 fn test_commit_handle_fail_idempotent_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -17149,7 +17564,9 @@ fn test_commit_handle_fail_inconsistent_commit_selflead() {
 fn test_commit_handle_fail_inconsistent_commit_nonlead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -17214,7 +17631,9 @@ fn test_commit_handle_fail_inconsistent_commit_nonlead() {
 fn test_commit_handle_fail_inconsistent_commit_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -17279,7 +17698,9 @@ fn test_commit_handle_fail_inconsistent_commit_lead() {
 fn test_commit_handle_fail_inconsistent_commit_noprepared_nolead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -17345,7 +17766,9 @@ fn test_commit_handle_fail_inconsistent_commit_noprepared_nolead() {
 fn test_commit_handle_fail_inconsistent_commit_noprepared_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -17541,7 +17964,9 @@ fn test_commit_handle_fail_inconsistent_complete_selflead() {
 fn test_commit_handle_fail_inconsistent_complete_nonlead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -17606,7 +18031,9 @@ fn test_commit_handle_fail_inconsistent_complete_nonlead() {
 fn test_commit_handle_fail_inconsistent_complete_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -17671,7 +18098,9 @@ fn test_commit_handle_fail_inconsistent_complete_lead() {
 fn test_commit_handle_fail_inconsistent_complete_noprepared_nolead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -17737,7 +18166,9 @@ fn test_commit_handle_fail_inconsistent_complete_noprepared_nolead() {
 fn test_commit_handle_fail_inconsistent_complete_noprepared_lead() {
     let proposal = 2;
     let inconsistent = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -17972,7 +18403,9 @@ fn test_finish_commit_basic_selflead() {
 #[test]
 fn test_finish_commit_basic_nonlead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(proposal),
@@ -18057,7 +18490,9 @@ fn test_finish_commit_basic_nonlead() {
 #[test]
 fn test_finish_commit_basic_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(proposal),
@@ -18142,7 +18577,9 @@ fn test_finish_commit_basic_lead() {
 #[test]
 fn test_finish_commit_basic_noprepared_nolead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -18235,7 +18672,9 @@ fn test_finish_commit_basic_noprepared_nolead() {
 #[test]
 fn test_finish_commit_basic_noprepared_lead() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -18324,7 +18763,9 @@ fn test_finish_commit_basic_noprepared_lead() {
 #[test]
 fn test_finish_commit_basic_carryover() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -18409,7 +18850,9 @@ fn test_finish_commit_basic_carryover() {
 #[test]
 fn test_finish_commit_basic_carryover_commit() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -18490,7 +18933,9 @@ fn test_finish_commit_basic_carryover_commit() {
 #[test]
 fn test_finish_commit_basic_carryover_complete() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -18571,7 +19016,9 @@ fn test_finish_commit_basic_carryover_complete() {
 #[test]
 fn test_finish_commit_basic_decide_both() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -18656,7 +19103,9 @@ fn test_finish_commit_basic_decide_both() {
 #[test]
 fn test_finish_commit_basic_decide_both_commit() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -18737,7 +19186,9 @@ fn test_finish_commit_basic_decide_both_commit() {
 #[test]
 fn test_finish_commit_basic_decide_both_complete() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19011,7 +19462,9 @@ fn test_finish_commit_override_selflead() {
 fn test_finish_commit_override_nonlead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(overridden),
@@ -19107,7 +19560,9 @@ fn test_finish_commit_override_nonlead() {
 fn test_finish_commit_override_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(overridden),
@@ -19208,7 +19663,9 @@ fn test_finish_commit_override_lead() {
 fn test_finish_commit_override_noprepared_nolead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19312,7 +19769,9 @@ fn test_finish_commit_override_noprepared_nolead() {
 fn test_finish_commit_override_noprepared_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19412,7 +19871,9 @@ fn test_finish_commit_override_noprepared_lead() {
 fn test_finish_commit_override_carryover() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19503,7 +19964,9 @@ fn test_finish_commit_override_carryover() {
 fn test_finish_commit_override_carryover_commit() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19590,7 +20053,9 @@ fn test_finish_commit_override_carryover_commit() {
 fn test_finish_commit_override_carryover_complete() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19677,7 +20142,9 @@ fn test_finish_commit_override_carryover_complete() {
 fn test_finish_commit_override_decide_both() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19768,7 +20235,9 @@ fn test_finish_commit_override_decide_both() {
 fn test_finish_commit_override_decide_both_commit() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19855,7 +20324,9 @@ fn test_finish_commit_override_decide_both_commit() {
 fn test_finish_commit_override_decide_both_complete() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -19942,7 +20413,9 @@ fn test_finish_commit_override_decide_both_complete() {
 fn test_finish_commit_override_complete_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(overridden),
@@ -20043,7 +20516,9 @@ fn test_finish_commit_override_complete_lead() {
 fn test_finish_commit_override_complete_noprepared_nolead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20147,7 +20622,9 @@ fn test_finish_commit_override_complete_noprepared_nolead() {
 fn test_finish_commit_override_complete_noprepared_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20247,7 +20724,9 @@ fn test_finish_commit_override_complete_noprepared_lead() {
 fn test_finish_commit_override_complete_carryover() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20338,7 +20817,9 @@ fn test_finish_commit_override_complete_carryover() {
 fn test_finish_commit_override_complete_carryover_commit() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20425,7 +20906,9 @@ fn test_finish_commit_override_complete_carryover_commit() {
 fn test_finish_commit_override_complete_carryover_complete() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20512,7 +20995,9 @@ fn test_finish_commit_override_complete_carryover_complete() {
 fn test_finish_commit_override_complete_decide_both() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20603,7 +21088,9 @@ fn test_finish_commit_override_complete_decide_both() {
 fn test_finish_commit_override_complete_decide_both_commit() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20690,7 +21177,9 @@ fn test_finish_commit_override_complete_decide_both_commit() {
 fn test_finish_commit_override_complete_decide_both_complete() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20777,7 +21266,9 @@ fn test_finish_commit_override_complete_decide_both_complete() {
 fn test_finish_commit_override_fail_noprepared_lead() {
     let overridden = 0;
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20871,7 +21362,9 @@ fn test_finish_commit_override_fail_noprepared_lead() {
 #[test]
 fn test_finish_commit_override_fail_carryover() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -20957,7 +21450,9 @@ fn test_finish_commit_override_fail_carryover() {
 #[test]
 fn test_finish_commit_override_fail_carryover_commit() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21039,7 +21534,9 @@ fn test_finish_commit_override_fail_carryover_commit() {
 #[test]
 fn test_finish_commit_override_fail_carryover_complete() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21121,7 +21618,9 @@ fn test_finish_commit_override_fail_carryover_complete() {
 #[test]
 fn test_finish_commit_override_fail_decide_both() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21207,7 +21706,9 @@ fn test_finish_commit_override_fail_decide_both() {
 #[test]
 fn test_finish_commit_override_fail_decide_both_commit() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21289,7 +21790,9 @@ fn test_finish_commit_override_fail_decide_both_commit() {
 #[test]
 fn test_finish_commit_override_fail_decide_both_complete() {
     let proposal = 2;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21476,7 +21979,9 @@ fn test_deadlock_commit_selflead() {
 fn test_deadlock_commit_nonlead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(a),
@@ -21528,7 +22033,9 @@ fn test_deadlock_commit_nonlead() {
 fn test_deadlock_commit_lead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(a),
@@ -21580,7 +22087,9 @@ fn test_deadlock_commit_lead() {
 fn test_deadlock_commit_noprepared_nolead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21626,7 +22135,9 @@ fn test_deadlock_commit_noprepared_nolead() {
 fn test_deadlock_commit_noprepared_lead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21671,7 +22182,9 @@ fn test_deadlock_commit_noprepared_lead() {
 fn test_deadlock_commit_carryover() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21723,7 +22236,9 @@ fn test_deadlock_commit_carryover() {
 fn test_deadlock_commit_carryover_commit() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21774,7 +22289,9 @@ fn test_deadlock_commit_carryover_commit() {
 fn test_deadlock_commit_carryover_complete() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21825,7 +22342,9 @@ fn test_deadlock_commit_carryover_complete() {
 fn test_deadlock_commit_decide_both() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21877,7 +22396,9 @@ fn test_deadlock_commit_decide_both() {
 fn test_deadlock_commit_decide_both_commit() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -21928,7 +22449,9 @@ fn test_deadlock_commit_decide_both_commit() {
 fn test_deadlock_commit_decide_both_complete() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22056,7 +22579,9 @@ fn test_all_fail_commit_selflead() {
 #[test]
 fn test_all_fail_commit_nonlead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(a),
@@ -22095,7 +22620,9 @@ fn test_all_fail_commit_nonlead() {
 #[test]
 fn test_all_fail_commit_lead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(a),
@@ -22134,7 +22661,9 @@ fn test_all_fail_commit_lead() {
 #[test]
 fn test_all_fail_commit_noprepared_nolead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22166,7 +22695,9 @@ fn test_all_fail_commit_noprepared_nolead() {
 #[test]
 fn test_all_fail_commit_noprepared_lead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22198,7 +22729,9 @@ fn test_all_fail_commit_noprepared_lead() {
 #[test]
 fn test_all_fail_commit_carryover() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22237,7 +22770,9 @@ fn test_all_fail_commit_carryover() {
 #[test]
 fn test_all_fail_commit_carryover_commit() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22276,7 +22811,9 @@ fn test_all_fail_commit_carryover_commit() {
 #[test]
 fn test_all_fail_commit_carryover_complete() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22399,7 +22936,9 @@ fn test_fail_commit_selflead() {
 #[test]
 fn test_fail_commit_nonlead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(a),
@@ -22441,7 +22980,9 @@ fn test_fail_commit_nonlead() {
 #[test]
 fn test_fail_commit_lead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(a),
@@ -22483,7 +23024,9 @@ fn test_fail_commit_lead() {
 #[test]
 fn test_fail_commit_noprepared_nolead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22519,7 +23062,9 @@ fn test_fail_commit_noprepared_nolead() {
 #[test]
 fn test_fail_commit_noprepared_lead() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22553,7 +23098,9 @@ fn test_fail_commit_noprepared_lead() {
 #[test]
 fn test_fail_commit_carryover() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22595,7 +23142,9 @@ fn test_fail_commit_carryover() {
 #[test]
 fn test_fail_commit_carryover_commit() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22636,7 +23185,9 @@ fn test_fail_commit_carryover_commit() {
 #[test]
 fn test_fail_commit_carryover_complete() {
     let a = 0;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22758,7 +23309,9 @@ fn test_doomed_commit_selflead() {
 fn test_doomed_commit_nonlead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         Some(a),
@@ -22798,7 +23351,9 @@ fn test_doomed_commit_nonlead() {
 fn test_doomed_commit_lead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(1) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(1)
+    };
 
     consensus_test(
         Some(a),
@@ -22838,7 +23393,9 @@ fn test_doomed_commit_lead() {
 fn test_doomed_commit_noprepared_nolead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22872,7 +23429,9 @@ fn test_doomed_commit_noprepared_nolead() {
 fn test_doomed_commit_noprepared_lead() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22906,7 +23465,9 @@ fn test_doomed_commit_noprepared_lead() {
 fn test_doomed_commit_carryover() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22946,7 +23507,9 @@ fn test_doomed_commit_carryover() {
 fn test_doomed_commit_carryover_commit() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -22986,7 +23549,9 @@ fn test_doomed_commit_carryover_commit() {
 fn test_doomed_commit_carryover_complete() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -23026,7 +23591,9 @@ fn test_doomed_commit_carryover_complete() {
 fn test_doomed_commit_decide_both() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -23066,7 +23633,9 @@ fn test_doomed_commit_decide_both() {
 fn test_doomed_commit_decide_both_commit() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
@@ -23106,7 +23675,9 @@ fn test_doomed_commit_decide_both_commit() {
 fn test_doomed_commit_decide_both_complete() {
     let a = 0;
     let b = 1;
-    let leader = PBFTRoundInfo::Other { party: OutboundPartyIdx::from(9) };
+    let leader = PBFTRoundInfo::Other {
+        party: OutboundPartyIdx::from(9)
+    };
 
     consensus_test(
         None,
