@@ -26,7 +26,6 @@
 //! provide a consensus protocol resilient against a Byzantine
 //! Adversary who controls up to but not including 1/3rd of the
 //! parties in the consensus pool.
-#![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 #![allow(clippy::redundant_field_names)]
 

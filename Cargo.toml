@@ -22,14 +22,13 @@ description = "Castro-Liskov PBFT consensus protocol implementation for the Cons
 repository = "https://github.com/constellation-system/constellation-pbft"
 version = "0.0.0"
 authors = [ "Eric McCorkle <eric.mccorkle@jhuapl.edu>" ]
-rust-version = "1.83"
+edition = "2024"
 license = "AGPL-3.0-only"
 keywords = ["networking", "distributed systems", "consensus"]
 categories = ["network-programming"]
 exclude = [
     ".gitignore"
 ]
-edition = "2018"
 
 [features]
 default = ["gssapi", "log", "openssl", "unix"]
@@ -66,4 +65,3 @@ asn1rs = { version = "0.3" }
 
 [dev-dependencies]
 env_logger = { version = "0.10" }
-serde_yaml = { version = "0.9" }

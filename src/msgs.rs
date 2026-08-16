@@ -178,9 +178,13 @@ use asn1rs::syn::io::UperReader;
 #[cfg(test)]
 use asn1rs::syn::io::UperWriter;
 #[cfg(test)]
-use constellation_common::codec::Codec;
+use constellation_common::codec::Decoder;
+#[cfg(test)]
+use constellation_common::codec::Encoder;
 #[cfg(test)]
 use constellation_common::codec::DatagramCodec;
+#[cfg(test)]
+use constellation_common::config::Create;
 
 #[cfg(test)]
 use crate::generated::msgs::PbftAckState;

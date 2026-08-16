@@ -22,9 +22,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use constellation_common::codec::Decoder;
-use constellation_common::codec::Encoder;
-use constellation_common::config::CreateWithParam;
+use constellation_common::config::Create;
 use constellation_common::hashid::HashAlgo;
 use constellation_consensus_common::config::SingleRoundConfig;
 use constellation_consensus_common::parties::StaticParties;
@@ -33,18 +31,12 @@ use constellation_consensus_common::parties::RoundIDGenTypes;
 use constellation_consensus_common::parties::RoundPartyIDTypes;
 use constellation_consensus_common::parties::RoundPartyIdxTypes;
 use constellation_consensus_common::proto::ConsensusProto;
-use constellation_consensus_common::proto::ConsensusProtoMsgTypes;
-use constellation_consensus_common::proto::ConsensusProtoOutboundTypes;
 use constellation_consensus_common::round::SingleRound;
 use constellation_consensus_common::round::SingleRoundCreateError;
-use serde::Deserialize;
-use serde::Serialize;
 
 use crate::config::PBFTConfig;
 use crate::config::PBFTProtoStateConfig;
-use crate::msgs::PbftMsg;
 use crate::outbound::OutboundPartyIdx;
-use crate::outbound::PBFTOutbound;
 use crate::state::PBFTProtoState;
 use crate::state::PBFTProtoTypes;
 use crate::state::PBFTRoundStateCreateError;
@@ -58,11 +50,9 @@ where
     hash: PhantomData<H>,
     types: PhantomData<Types>,
     outbound_config: SingleRoundConfig<PBFTProtoStateConfig>,
-    codec: Types::PartyCodec
 }
 
-impl<H, Types> CreateWithParam<Types::PartyCodec>
-    for PBFTProto<H, Types>
+impl<H, Types> Create for PBFTProto<H, Types>
 where
     Types: RoundIDGenTypes + RoundPartyIDTypes + PartyTypes,
     H: HashAlgo,
@@ -70,17 +60,13 @@ where
     type Config = PBFTConfig;
     type CreateError = Infallible;
 
-    fn create(
-        config: Self::Config,
-        codec: Types::PartyCodec
-    ) -> Result<Self, Self::CreateError> {
+    fn create(config: Self::Config) -> Result<Self, Self::CreateError> {
         let outbound_config = config.take();
 
         Ok(PBFTProto {
             types: PhantomData,
             hash: PhantomData,
             outbound_config: outbound_config,
-            codec: codec
         })
     }
 }
