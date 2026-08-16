@@ -1,4 +1,4 @@
-// Copyright © 2024-25 The Johns Hopkins Applied Physics Laboratory LLC.
+// Copyright © 2024-26 The Johns Hopkins Applied Physics Laboratory LLC.
 //
 // This program is free software: you can redistribute it and/or
 // modify it under the terms of the GNU Affero General Public License,
@@ -22,12 +22,19 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use constellation_common::codec::Codec;
+use constellation_common::codec::Decoder;
+use constellation_common::codec::Encoder;
+use constellation_common::config::CreateWithParam;
 use constellation_common::hashid::HashAlgo;
 use constellation_consensus_common::config::SingleRoundConfig;
 use constellation_consensus_common::parties::StaticParties;
+use constellation_consensus_common::parties::PartyTypes;
+use constellation_consensus_common::parties::RoundIDGenTypes;
+use constellation_consensus_common::parties::RoundPartyIDTypes;
+use constellation_consensus_common::parties::RoundPartyIdxTypes;
 use constellation_consensus_common::proto::ConsensusProto;
-use constellation_consensus_common::proto::ConsensusProtoRounds;
+use constellation_consensus_common::proto::ConsensusProtoMsgTypes;
+use constellation_consensus_common::proto::ConsensusProtoOutboundTypes;
 use constellation_consensus_common::round::SingleRound;
 use constellation_consensus_common::round::SingleRoundCreateError;
 use serde::Deserialize;
@@ -39,81 +46,68 @@ use crate::msgs::PbftMsg;
 use crate::outbound::OutboundPartyIdx;
 use crate::outbound::PBFTOutbound;
 use crate::state::PBFTProtoState;
+use crate::state::PBFTProtoTypes;
 use crate::state::PBFTRoundStateCreateError;
 
 /// Castro-Liskov PBFT consensus protocol implementation.
-pub struct PBFTProto<H, RoundIDs, Party>
+pub struct PBFTProto<H, Types>
 where
-    RoundIDs: Iterator,
-    RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord,
-    Party: Clone + Eq + Hash,
+    Types: RoundIDGenTypes + RoundPartyIDTypes + PartyTypes,
     H: HashAlgo,
     H::HashID: Clone + Display + Eq + Hash {
     hash: PhantomData<H>,
-    party: PhantomData<Party>,
-    round_ids: PhantomData<RoundIDs>,
-    outbound_config: SingleRoundConfig<PBFTProtoStateConfig>
+    types: PhantomData<Types>,
+    outbound_config: SingleRoundConfig<PBFTProtoStateConfig>,
+    codec: Types::PartyCodec
 }
 
-impl<H, RoundIDs, Party, C> ConsensusProto<Party, C>
-    for PBFTProto<H, RoundIDs, Party>
+impl<H, Types> CreateWithParam<Types::PartyCodec>
+    for PBFTProto<H, Types>
 where
-    RoundIDs: Iterator,
-    RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord,
-    Party: Clone + Display + Eq + Hash,
-    C: Clone + Codec<Party>,
+    Types: RoundIDGenTypes + RoundPartyIDTypes + PartyTypes,
     H: HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash
-{
+    H::HashID: Clone + Display + Eq + Hash {
     type Config = PBFTConfig;
     type CreateError = Infallible;
 
     fn create(
         config: Self::Config,
-        _codec: C
+        codec: Types::PartyCodec
     ) -> Result<Self, Self::CreateError> {
         let outbound_config = config.take();
 
         Ok(PBFTProto {
+            types: PhantomData,
             hash: PhantomData,
-            party: PhantomData,
-            round_ids: PhantomData,
-            outbound_config: outbound_config
+            outbound_config: outbound_config,
+            codec: codec
         })
     }
 }
 
-impl<H, RoundIDs, PartyID, Party, C>
-    ConsensusProtoRounds<RoundIDs, PartyID, Party, C, StaticParties<PartyID>>
-    for PBFTProto<H, RoundIDs, Party>
+impl<H, Types> ConsensusProto<StaticParties<Types::PartyID>, Types>
+    for PBFTProto<H, Types>
 where
-    RoundIDs: Iterator,
-    RoundIDs::Item: Clone + Display + From<u128> + Into<u128> + Ord + Send,
-    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize> + Ord,
-    Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
-    C: Clone + Codec<Party>,
+    Types: RoundIDGenTypes + PartyTypes
+        + RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
+    Types::RoundID: From<u128> + Into<u128>,
     H: Default + HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash
-{
-    type Msg = PbftMsg;
-    type Out = PBFTOutbound<RoundIDs::Item>;
-    type RoundPartyIdx = OutboundPartyIdx;
+    H::HashID: Clone + Display + Eq + Hash {
+    type ProtoTypes = PBFTProtoTypes;
     type Rounds = SingleRound<
-        PBFTProtoState<H, PartyID>,
-        RoundIDs,
-        PartyID,
-        PbftMsg,
-        PBFTOutbound<RoundIDs::Item>
+        PBFTProtoState<H, Types::PartyID>,
+        Types,
+        PBFTProtoTypes
     >;
     type RoundsError<PartiesErr>
-        = SingleRoundCreateError<Infallible, PBFTRoundStateCreateError<PartyID>>
+        = SingleRoundCreateError<Infallible, PBFTRoundStateCreateError<Types::PartyID>>
     where
         PartiesErr: Display;
-    type State = PBFTProtoState<H, PartyID>;
+    type State = PBFTProtoState<H, Types::PartyID>;
 
     fn rounds(
         &self,
-        round_ids: RoundIDs
+        round_ids: Types::RoundIDs
     ) -> Result<Self::Rounds, Self::RoundsError<Infallible>> {
         SingleRound::create(round_ids, self.outbound_config.clone())
     }

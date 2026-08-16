@@ -1,4 +1,4 @@
-// Copyright © 2024-25 The Johns Hopkins Applied Physics Laboratory LLC.
+// Copyright © 2024-26 The Johns Hopkins Applied Physics Laboratory LLC.
 //
 // This program is free software: you can redistribute it and/or
 // modify it under the terms of the GNU Affero General Public License,
@@ -34,14 +34,20 @@ use std::time::Instant;
 
 use bitvec::prelude::bitvec;
 use bitvec::prelude::BitVec;
-use constellation_common::codec::Codec;
+use constellation_common::codec::Decoder;
+use constellation_common::codec::Encoder;
 use constellation_common::hashid::HashAlgo;
 use constellation_common::hashid::HashID;
 use constellation_consensus_common::oper::OperBatch;
 use constellation_consensus_common::oper::OperBatches;
 use constellation_consensus_common::outbound::Outbound;
+use constellation_consensus_common::parties::RoundPartyIdxTypes;
+use constellation_consensus_common::parties::RoundPartyIDTypes;
+use constellation_consensus_common::parties::PartyTypes;
 use constellation_consensus_common::parties::Parties;
-use constellation_consensus_common::parties::PartyIDMap;
+use constellation_consensus_common::parties::PartyRoundIDMap;
+use constellation_consensus_common::proto::ConsensusProtoMsgTypes;
+use constellation_consensus_common::proto::ConsensusProtoOutboundTypes;
 use constellation_consensus_common::state::ProtoState;
 use constellation_consensus_common::state::ProtoStateRound;
 use constellation_consensus_common::state::ProtoStateSetParties;
@@ -72,6 +78,9 @@ use crate::outbound::PBFTOutbound;
 use crate::outbound::PBFTOutboundSend;
 
 const SELF_PARTY: usize = 0;
+
+#[derive(Clone, Default)]
+pub struct PBFTProtoTypes;
 
 /// Hints as to who to nominate for leader in a round.
 #[derive(Clone)]
@@ -386,6 +395,21 @@ where
         PbftRequest::Payload(bytes)
     }
 }
+
+impl<RoundID> ConsensusProtoMsgTypes<RoundID> for PBFTProtoTypes
+where RoundID: Clone + Display + Ord + From<u128> + Into<u128> {
+    type Payload = PbftContent;
+    type Msg = PbftMsg;
+}
+
+impl<Types> ConsensusProtoOutboundTypes<Types> for PBFTProtoTypes
+where Types: RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
+      Types::RoundID: From<u128> + Into<u128> {
+    type CollectOutboundError = Infallible;
+    type RecvError = Infallible;
+    type Out = PBFTOutbound<Types::RoundID>;
+}
+
 
 impl<H, Req> CommitState<H, Req>
 where
@@ -1903,7 +1927,7 @@ where
     type SubmitError = Infallible;
 
     #[inline]
-    fn submit_elems<I>(
+    fn submit_reqs<I>(
         &mut self,
         hashes: I
     ) -> Result<(), Self::SubmitError>
@@ -1920,23 +1944,20 @@ where
     }
 }
 
-impl<H, PartyID, Party, C> ProtoStateSetParties<PartyID, Party, C>
-    for PBFTProtoState<H, PartyID>
+impl<H, Types> ProtoStateSetParties<Types>
+    for PBFTProtoState<H, Types::PartyID>
 where
-    Party: Clone + for<'a> Deserialize<'a> + Display + Eq + Hash + Serialize,
-    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
-    C: Codec<Party>,
     H: Default + HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash
-{
-    type SetPartiesError = C::EncodeError;
+    H::HashID: Clone + Display + Eq + Hash,
+    Types: PartyTypes + RoundPartyIDTypes {
+    type SetPartiesError = Types::EncodeError;
 
     fn set_parties(
         &mut self,
-        mut codec: C,
-        self_party: Party,
-        party_data: &[Party]
-    ) -> Result<Vec<Option<PartyID>>, Self::SetPartiesError> {
+        mut codec: Types::PartyCodec,
+        self_party: Types::Party,
+        party_data: &[Types::Party]
+    ) -> Result<Vec<Option<Types::PartyID>>, Self::SetPartiesError> {
         let len = party_data.len();
         let self_hash = self.hash.hashid(&mut codec, &self_party)?;
         let party_hashes = HashMap::with_capacity(len);
@@ -1948,7 +1969,7 @@ where
         self.party_hashes = party_hashes;
 
         for (i, party) in party_data.iter().enumerate() {
-            let party_id = PartyID::from(i);
+            let party_id = Types::PartyID::from(i);
             let hash = self.hash.hashid(&mut codec, party)?;
 
             party_map.push(old_hash_parties.get(&hash).cloned());
@@ -1960,13 +1981,11 @@ where
     }
 }
 
-impl<H, RoundID, PartyID> ProtoState<RoundID, PartyID>
-    for PBFTProtoState<H, PartyID>
+impl<H, Types> ProtoState<Types> for PBFTProtoState<H, Types::PartyID>
 where
-    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
     H: Default + HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash
-{
+    H::HashID: Clone + Display + Eq + Hash,
+    Types: PartyTypes + RoundPartyIDTypes {
     type Config = PBFTProtoStateConfig;
     type CreateError = Infallible;
     type Oper = PBFTRoundResult<PbftRequest>;
@@ -2010,7 +2029,7 @@ where
         oper: &PBFTRoundResult<PbftRequest>
     ) -> Result<(), Self::UpdateError>
     where
-        P: Parties<RoundID, PartyID> {
+        P: Parties<Types> {
         match oper {
             PBFTRoundResult::Complete {
                 req: PbftRequest::View(PbftView { id })
@@ -2125,30 +2144,28 @@ where
     }
 }
 
-impl<H, RoundID, PartyID>
-    ProtoStateRound<RoundID, PartyID, PbftMsg, PBFTOutbound<RoundID>>
-    for PBFTProtoState<H, PartyID>
+impl<H, Types> ProtoStateRound<Types, PBFTProtoTypes>
+    for PBFTProtoState<H, Types::PartyID>
 where
-    RoundID: Clone + Display + From<u128> + Into<u128> + Ord,
-    PartyID: Clone + Display + Eq + Hash + From<usize> + Into<usize>,
     H: Default + HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash
-{
-    type CreateRoundError = PBFTRoundStateCreateError<PartyID>;
+    H::HashID: Clone + Display + Eq + Hash,
+    Types: PartyTypes + RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
+    Types::RoundID: From<u128> + Into<u128> {
+    type CreateRoundError = PBFTRoundStateCreateError<Types::PartyID>;
     type Info = PBFTRoundInfo<OutboundPartyIdx>;
     type Round = PBFTRoundState<H::HashID, PbftRequest>;
 
     fn create_round(
         &mut self,
-        parties: &PartyIDMap<OutboundPartyIdx, PartyID>
+        parties: &PartyRoundIDMap<Types>
     ) -> Result<
         (
             Self::Round,
             PBFTRoundInfo<OutboundPartyIdx>,
-            PBFTOutbound<RoundID>,
+            PBFTOutbound<Types::RoundID>,
             Option<Instant>
         ),
-        PBFTRoundStateCreateError<PartyID>
+        PBFTRoundStateCreateError<Types::PartyID>
     > {
         let nparties = self.nparties();
         let mut out =
@@ -2455,27 +2472,20 @@ where
     }
 }
 
-impl<H, RoundID, Party, Out>
-    RoundStateRecv<
-        RoundID,
-        Party,
-        PBFTRoundResult<PbftRequest>,
-        PbftContent,
-        PBFTRoundInfo<Party>,
-        Out
-    > for PBFTRoundState<H, PbftRequest>
+impl<H, Types>
+    RoundStateRecv<Types, PBFTProtoTypes, PBFTRoundResult<PbftRequest>,
+                   PBFTRoundInfo<Types::PartyID>>
+    for PBFTRoundState<H, PbftRequest>
 where
-    Out: Outbound<RoundID, PbftMsg> + PBFTOutboundSend<PbftRequest>,
-    RoundID: Clone + Display + From<u128> + Into<u128> + Ord,
-    Party: Clone + Display + From<usize> + Into<usize>,
-    H: HashID
-{
+    H: HashID,
+    Types: PartyTypes + RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
+    Types::RoundID: From<u128> + Into<u128> {
     fn recv(
         self,
-        out: &mut Out,
-        info: &PBFTRoundInfo<Party>,
-        round: &RoundID,
-        party: &Party,
+        out: &mut PBFTOutbound<Types::RoundID>,
+        info: &PBFTRoundInfo<Types::PartyID>,
+        round: &Types::RoundID,
+        party: &OutboundPartyIdx,
         msg: PbftContent
     ) -> RoundStateUpdate<Self, PBFTRoundResult<PbftRequest>> {
         match msg {
