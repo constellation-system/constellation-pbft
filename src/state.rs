@@ -23,6 +23,7 @@ use std::array::TryFromSliceError;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::convert::Infallible;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -47,8 +48,8 @@ use constellation_consensus_common::parties::RoundPartyIdxTypes;
 use constellation_consensus_common::proto::ConsensusProtoMsgTypes;
 use constellation_consensus_common::proto::ConsensusProtoOutboundTypes;
 use constellation_consensus_common::state::ProtoState;
+use constellation_consensus_common::state::ProtoStateParties;
 use constellation_consensus_common::state::ProtoStateRound;
-use constellation_consensus_common::state::ProtoStateSetParties;
 use constellation_consensus_common::state::ProtoStateSubmit;
 use constellation_consensus_common::state::RoundState;
 use constellation_consensus_common::state::RoundStateNotify;
@@ -69,9 +70,9 @@ use crate::generated::msgs::PbftStateUpdate;
 use crate::generated::msgs::PbftUpdateAck;
 use crate::generated::req::PbftRequest;
 use crate::generated::req::PbftView;
-use crate::outbound::OutboundPartyIdx;
 use crate::outbound::PBFTOutbound;
 use crate::outbound::PBFTOutboundSend;
+use crate::proto::OutboundPartyIdx;
 
 const SELF_PARTY: usize = 0;
 
@@ -283,18 +284,21 @@ pub struct PBFTVoteCounts<Req> {
 }
 
 /// Errors that can occur creating a [PBFTRoundState].
+#[derive(Debug)]
 pub enum PBFTRoundStateCreateError<Party> {
     BadParty { party: Party },
     BadHint { party: Party }
 }
 
 /// Errors that can occur creating a [PBFTProtoState].
+#[derive(Debug)]
 pub enum PBFTProtoStateCreateError<Parties, Encode> {
     Parties { err: Parties },
     Encode { err: Encode }
 }
 
 /// Errors that can occur updating a [PBFTProtoState].
+#[derive(Debug)]
 pub enum PBFTProtoStateUpdateError<H>
 where
     H: Display + HashID {
@@ -394,7 +398,7 @@ where
 
 impl<RoundID> ConsensusProtoMsgTypes<RoundID> for PBFTProtoTypes
 where
-    RoundID: Clone + Display + Ord + From<u128> + Into<u128>
+    RoundID: Clone + Debug + Display + Ord + From<u128> + Into<u128>
 {
     type Msg = PbftMsg;
     type Payload = PbftContent;
@@ -1941,7 +1945,7 @@ where
     }
 }
 
-impl<H, Types> ProtoStateSetParties<Types> for PBFTProtoState<H, Types::PartyID>
+impl<H, Types> ProtoStateParties<Types> for PBFTProtoState<H, Types::PartyID>
 where
     H: Default + HashAlgo,
     H::HashID: Clone + Display + Eq + Hash,
@@ -1949,25 +1953,37 @@ where
 {
     type SetPartiesError = Types::EncodeError;
 
-    fn set_parties(
+    fn nparties(&self) -> usize {
+        self.party_hashes.len()
+    }
+
+    fn set_parties<'a, I>(
         &mut self,
-        mut codec: Types::PartyCodec,
+        codec: &mut Types::PartyCodec,
         self_party: Types::Party,
-        party_data: &[Types::Party]
-    ) -> Result<Vec<Option<Types::PartyID>>, Self::SetPartiesError> {
-        let len = party_data.len();
-        let self_hash = self.hash.hashid(&mut codec, &self_party)?;
-        let party_hashes = HashMap::with_capacity(len);
-        let hash_parties = HashMap::with_capacity(len);
+        party_data: I
+    ) -> Result<Vec<Option<Types::PartyID>>, Self::SetPartiesError>
+    where
+        I: Iterator<Item = &'a Types::Party>,
+        Types::Party: 'a {
+        let (party_hashes, hash_parties, mut party_map) =
+            match party_data.size_hint() {
+                (_, Some(len)) => (
+                    HashMap::with_capacity(len),
+                    HashMap::with_capacity(len),
+                    Vec::with_capacity(len)
+                ),
+                (_, None) => (HashMap::new(), HashMap::new(), Vec::new())
+            };
+        let self_hash = self.hash.hashid(codec, &self_party)?;
         let old_hash_parties = replace(&mut self.hash_parties, hash_parties);
-        let mut party_map = Vec::with_capacity(len);
 
         self.self_hash = self_hash;
         self.party_hashes = party_hashes;
 
-        for (i, party) in party_data.iter().enumerate() {
+        for (i, party) in party_data.enumerate() {
             let party_id = Types::PartyID::from(i);
-            let hash = self.hash.hashid(&mut codec, party)?;
+            let hash = self.hash.hashid(codec, party)?;
 
             party_map.push(old_hash_parties.get(&hash).cloned());
             self.party_hashes.insert(party_id.clone(), hash.clone());
@@ -1981,7 +1997,7 @@ where
 impl<H, Types> ProtoState<Types> for PBFTProtoState<H, Types::PartyID>
 where
     H: Default + HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash,
+    H::HashID: Clone + Debug + Display + Eq + Hash,
     Types: PartyTypes + RoundPartyIDTypes
 {
     type Config = PBFTProtoStateConfig;
@@ -2146,7 +2162,7 @@ impl<H, Types> ProtoStateRound<Types, PBFTProtoTypes>
     for PBFTProtoState<H, Types::PartyID>
 where
     H: Default + HashAlgo,
-    H::HashID: Clone + Display + Eq + Hash,
+    H::HashID: Clone + Debug + Display + Eq + Hash,
     Types: PartyTypes + RoundPartyIdxTypes<PartyRoundIdx = OutboundPartyIdx>,
     Types::RoundID: From<u128> + Into<u128>
 {
@@ -2582,9 +2598,6 @@ where
         }
     }
 }
-
-#[cfg(test)]
-use std::fmt::Debug;
 
 #[cfg(test)]
 use crate::init;

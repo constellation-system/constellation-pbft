@@ -20,10 +20,10 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::convert::Infallible;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
-use std::hash::Hash;
 use std::marker::PhantomData;
 use std::time::Instant;
 
@@ -46,6 +46,7 @@ use crate::generated::msgs::PbftMsg;
 use crate::generated::msgs::PbftStateUpdate;
 use crate::generated::msgs::PbftUpdateAck;
 use crate::generated::req::PbftRequest;
+use crate::proto::OutboundPartyIdx;
 
 /// Outbound message interface for the PBFT protocol.
 pub(crate) trait PBFTOutboundSend<Req> {
@@ -70,9 +71,6 @@ pub(crate) trait PBFTOutboundSend<Req> {
     // Request to send a failure message to all parties.
     fn send_fail(&mut self);
 }
-
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct OutboundPartyIdx(usize);
 
 #[derive(Copy, Clone, Debug)]
 enum PartyPhase {
@@ -121,20 +119,6 @@ pub struct PBFTOutbound<RoundID> {
     active: BitVec,
     /// Pending acknowledgements.
     acks: BitVec
-}
-
-impl From<usize> for OutboundPartyIdx {
-    #[inline]
-    fn from(val: usize) -> Self {
-        OutboundPartyIdx(val)
-    }
-}
-
-impl From<OutboundPartyIdx> for usize {
-    #[inline]
-    fn from(val: OutboundPartyIdx) -> usize {
-        val.0
-    }
 }
 
 impl<RoundID> PBFTOutbound<RoundID> {
@@ -451,7 +435,7 @@ impl<RoundID> PBFTOutbound<RoundID> {
 
 impl<RoundID> Outbound<RoundID, PbftMsg> for PBFTOutbound<RoundID>
 where
-    RoundID: Clone + Display + Ord + From<u128> + Into<u128>
+    RoundID: Clone + Debug + Display + Ord + From<u128> + Into<u128>
 {
     type CollectOutboundError = Infallible;
     type Config = PBFTOutboundConfig;
@@ -931,15 +915,6 @@ impl Display for LocalPhase {
             LocalPhase::Complete { .. } => write!(f, "complete"),
             LocalPhase::Fail => write!(f, "failed")
         }
-    }
-}
-
-impl Display for OutboundPartyIdx {
-    fn fmt(
-        &self,
-        f: &mut Formatter<'_>
-    ) -> Result<(), Error> {
-        self.0.fmt(f)
     }
 }
 

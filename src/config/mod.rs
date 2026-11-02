@@ -31,9 +31,11 @@ use serde::Serialize;
 #[serde(rename = "pbft-config")]
 #[serde(rename_all = "kebab-case")]
 #[serde(default)]
-pub struct PBFTConfig {
+pub struct PBFTConfig<PartyCodec>
+where
+    PartyCodec: Default {
     #[serde(flatten)]
-    state: SingleRoundConfig<PBFTProtoStateConfig>
+    state: SingleRoundConfig<PartyCodec, PBFTProtoStateConfig>
 }
 
 /// Configuration for individual rounds for the PBFT consensus protocol.
@@ -204,19 +206,26 @@ impl PBFTProtoStateConfig {
     }
 }
 
-impl PBFTConfig {
+impl<PartyCodec> PBFTConfig<PartyCodec>
+where
+    PartyCodec: Default
+{
     #[inline]
-    pub fn create(state: SingleRoundConfig<PBFTProtoStateConfig>) -> Self {
+    pub fn create(
+        state: SingleRoundConfig<PartyCodec, PBFTProtoStateConfig>
+    ) -> Self {
         PBFTConfig { state: state }
     }
 
     #[inline]
-    pub fn state(&self) -> &SingleRoundConfig<PBFTProtoStateConfig> {
+    pub fn state(
+        &self
+    ) -> &SingleRoundConfig<PartyCodec, PBFTProtoStateConfig> {
         &self.state
     }
 
     #[inline]
-    pub fn take(self) -> SingleRoundConfig<PBFTProtoStateConfig> {
+    pub fn take(self) -> SingleRoundConfig<PartyCodec, PBFTProtoStateConfig> {
         self.state
     }
 }

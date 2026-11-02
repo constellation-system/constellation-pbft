@@ -18,6 +18,7 @@
 
 //! Protocol messages.
 use std::convert::TryInto;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -41,7 +42,7 @@ pub type PBFTMsgPERCodec = PERCodec<PbftMsg, 8348>;
 
 impl<RoundID> RoundMsg<RoundID> for PbftMsg
 where
-    RoundID: Clone + Display + Ord + From<u128> + Into<u128>
+    RoundID: Clone + Debug + Display + Ord + From<u128> + Into<u128>
 {
     type Payload = PbftContent;
 
