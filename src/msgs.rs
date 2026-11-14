@@ -1,4 +1,4 @@
-// Copyright © 2024-25 The Johns Hopkins Applied Physics Laboratory LLC.
+// Copyright © 2024-26 The Johns Hopkins Applied Physics Laboratory LLC.
 //
 // This program is free software: you can redistribute it and/or
 // modify it under the terms of the GNU Affero General Public License,
@@ -18,6 +18,7 @@
 
 //! Protocol messages.
 use std::convert::TryInto;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Error;
 use std::fmt::Formatter;
@@ -41,7 +42,7 @@ pub type PBFTMsgPERCodec = PERCodec<PbftMsg, 8348>;
 
 impl<RoundID> RoundMsg<RoundID> for PbftMsg
 where
-    RoundID: Clone + Display + Ord + From<u128> + Into<u128>
+    RoundID: Clone + Debug + Display + Ord + From<u128> + Into<u128>
 {
     type Payload = PbftContent;
 
@@ -178,9 +179,13 @@ use asn1rs::syn::io::UperReader;
 #[cfg(test)]
 use asn1rs::syn::io::UperWriter;
 #[cfg(test)]
-use constellation_common::codec::Codec;
-#[cfg(test)]
 use constellation_common::codec::DatagramCodec;
+#[cfg(test)]
+use constellation_common::codec::Decoder;
+#[cfg(test)]
+use constellation_common::codec::Encoder;
+#[cfg(test)]
+use constellation_common::config::Create;
 
 #[cfg(test)]
 use crate::generated::msgs::PbftAckState;

@@ -1,4 +1,4 @@
-// Copyright © 2024-25 The Johns Hopkins Applied Physics Laboratory LLC.
+// Copyright © 2024-26 The Johns Hopkins Applied Physics Laboratory LLC.
 //
 // This program is free software: you can redistribute it and/or
 // modify it under the terms of the GNU Affero General Public License,
@@ -26,7 +26,6 @@
 //! provide a consensus protocol resilient against a Byzantine
 //! Adversary who controls up to but not including 1/3rd of the
 //! parties in the consensus pool.
-#![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
 #![allow(clippy::redundant_field_names)]
 
